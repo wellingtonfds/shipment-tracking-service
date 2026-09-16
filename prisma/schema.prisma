@@ -1,0 +1,20 @@
+// Prisma schema — APENAS infraestrutura de persistência.
+// Este arquivo é detalhe de infraestrutura: domínio e aplicação NUNCA
+// importam nada gerado daqui. Toda tradução model <-> entidade de domínio
+// acontece em src/infrastructure/database/repositories/.
+// Novos models de negócio entram AQUI e suas interfaces (ports) em src/domain/ports/.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlserver"
+}
+
+// Nenhum model de negócio no bootstrap.
+// Observações MSSQL (documentar antes de adicionar models):
+// - Sem enum nativo: usar String + validação na camada de domínio.
+// - autoincrement() em vez de @default(autoincrement()).
+// - migrate dev usa um shadow database no servidor (sa precisa de permissão).

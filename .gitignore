@@ -1,0 +1,27 @@
+node_modules
+
+# Keep environment variables out of version control
+.env
+
+# Prisma generated client + query engine (recriado por `prisma generate`; o postinstall gera)
+src/generated
+
+# Diretórios de skills/agentes instalados por ferramentas (ex.: prisma init)
+.agents/
+.claude/
+.windsurf/
+.cursor/
+.devin/
+.devcontainer/
+skills-lock.json
+.prisma/
+
+# Build
+dist
+tsconfig.build.tsbuildinfo
+
+# Testes
+coverage/
+
+# Grafo de conhecimento local (graphify)
+graphify-out/

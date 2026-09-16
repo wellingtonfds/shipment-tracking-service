@@ -32,7 +32,7 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 | `npm run lint` | oxlint type-aware |
 | `npm run db:migrate` | `prisma migrate dev` + `prisma generate` |
 | `npm run db:generate` | `prisma generate` (recria `src/generated/prisma`) |
-| `npm run db:seed` | popula `clientes` com massa fixa/idempotente (upsert por email, 15 clientes) |
+| `npm run db:seed` | popula `customers` com massa fixa/idempotente (upsert por email, 15 registros) |
 
 ## Dicas MSSQL
 

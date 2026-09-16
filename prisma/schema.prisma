@@ -13,20 +13,21 @@ datasource db {
   provider = "sqlserver"
 }
 
-// Model Cliente: CRUD de clientes (nome, email, telefone, endereço).
+// Model Customer: CRUD de customers (name, email, phone, address).
+// Identificadores/code SEMPRE em inglês (ver docs/DOMAIN_RULES.md — English-only code).
 // Observações MSSQL:
 // - Sem enum nativo: usar String + validação na camada de domínio.
 // - autoincrement() em vez de @default(autoincrement()).
 // - migrate dev usa um shadow database no servidor (sa precisa de permissão).
 
-model Cliente {
+model Customer {
   id        Int      @id @default(autoincrement())
-  nome      String   @db.NVarChar(120)
+  name      String   @db.NVarChar(120)
   email     String   @unique @db.NVarChar(160)
-  telefone  String   @db.NVarChar(40)
-  endereco  String   @db.NVarChar(255)
+  phone     String   @db.NVarChar(40)
+  address   String   @db.NVarChar(255)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("clientes")
+  @@map("customers")
 }

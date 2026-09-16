@@ -27,17 +27,29 @@
 
 ```
 main.ts (Swagger, ValidationPipe, prefixo)
-  → HealthController            (infrastructure/http/controllers)
-      → CheckHealthUseCase      (application/use-cases — injetado por token)
-          → HealthCheckPort     (application/ports — interface)
-  → PrismaHealthCheckAdapter    (infrastructure/database — IMPLEMENTA a port)
-      → PrismaService           (infrastructure/database — driver adapter mssql)
-  → HealthPresenter             (infrastructure/http/presenters — @ApiProperty)
+  → HealthModule                 (infrastructure/http/health — módulo da feature)
+      → HealthController         (infrastructure/http/health)
+          → CheckHealthUseCase   (application/health/use-cases — injetado por token)
+              → HealthCheckPort  (application/health — interface)
+  → PrismaHealthCheckAdapter     (infrastructure/database/health — IMPLEMENTA a port)
+      → PrismaService            (infrastructure/database — driver adapter mssql)
+  → HealthPresenter              (infrastructure/http/health — @ApiProperty)
 ```
+
+## Organização por feature
+
+Dentro de cada camada, os arquivos são agrupados por **recurso de negócio** (`customers/`, `health/`), não por tipo técnico no primeiro nível. Convenções:
+
+- `src/domain/<feature>/` — entidade, `errors/` do recurso e `ports/` do recurso.
+- `src/application/<feature>/` — `<feature>.tokens.ts` (DI) e `use-cases/`.
+- `src/infrastructure/database/<feature>/` — adapters Prisma; `src/infrastructure/http/<feature>/` — module, controller, `dtos/` e presenter.
+- `shared/` (em qualquer camada) — código transversal a features: `DomainError` base, filtro global, `ErrorPresenter`.
+- Sem barrel `index.ts`: imports sempre por caminho direto (evita ciclos e mantém a direção de dependência visível).
+- Nova feature = replicar esse padrão + registrar o module no `HttpModule`.
 
 ## Composition root
 
-`src/app.module.ts` é o único ponto de montagem. O wiring de use-cases vive no módulo de infraestrutura que os consome (`HttpModule`), injetado por **tokens string** (`src/application/ports/tokens.ts`) — assim a camada de aplicação não conhece o framework de DI.
+`src/app.module.ts` é o único ponto de montagem. Cada feature tem seu **módulo de infraestrutura** (`HealthModule`, `CustomersModule`) que registra o controller e faz o wiring dos use-cases, injetados por **tokens string** da própria feature (`src/application/<feature>/<feature>.tokens.ts`) — assim a camada de aplicação não conhece o framework de DI. O `HttpModule` apenas agrega os módulos por feature e registra o filtro global.
 
 ## Estrutura de diretórios
 
@@ -45,27 +57,48 @@ main.ts (Swagger, ValidationPipe, prefixo)
 src/
   main.ts                    # bootstrap HTTP, Swagger, pipes globais
   app.module.ts              # composition root
-  application/
-    ports/                   # contratos + tokens de DI
-    use-cases/               # regras de orquestração (classes puras)
-  domain/
-    errors/                  # DomainError base (código + mensagem)
-    entities/                # (vazio no bootstrap — entidades futuras)
-    value-objects/           # (vazio no bootstrap)
-    ports/                   # ports do domínio (repositórios futuros)
-  infrastructure/
+  application/               # pastas por feature; código transversal em shared/
+    customers/
+      customer.tokens.ts     # tokens de DI da feature
+      use-cases/             # regras de orquestração (classes puras) + specs
+    health/
+      health-check.port.ts
+      health.tokens.ts
+      use-cases/
+  domain/                    # pastas por feature; base em shared/
+    shared/
+      errors/                # DomainError base (código + mensagem)
+    customers/
+      customer.entity.ts
+      errors/                # erros específicos do recurso
+      ports/                 # repositórios do recurso
+  infrastructure/            # pastas por feature; código compartilhado em shared/
     config/                  # @nestjs/config
-    database/                # PrismaService + adapters (implementam ports)
+    database/
+      database.module.ts     # @Global: PrismaService
+      prisma.service.ts
+      customers/             # adapters que implementam ports da feature
+      health/
     http/
-      controllers/           # finos: 1 use-case por endpoint
-      presenters/            # DTOs de resposta com @ApiProperty
-      filters/               # GlobalExceptionFilter (DomainError → HTTP)
+      http.module.ts         # agregador: importa os módulos por feature, mantém APP_FILTER
+      shared/
+        filters/             # GlobalExceptionFilter (DomainError → HTTP)
+        presenters/          # ErrorPresenter (forma do erro na spec)
+      health/
+        health.module.ts     # controller + wiring de providers da feature
+        health.controller.ts
+        health.presenter.ts
+      customers/
+        customers.module.ts
+        customers.controller.ts
+        dtos/                # DTOs de request (@ApiProperty + class-validator)
+        customer.presenter.ts
   generated/                 # prisma client (gitignored)
 ```
 
 ## Erros
 
-- `DomainError` (src/domain/errors) — base abstrata com `code`. A infraestrutura (GlobalExceptionFilter) decide como traduzir para HTTP (422 por padrão).
+- `DomainError` (src/domain/shared/errors) — base abstrata com `code`. A infraestrutura (GlobalExceptionFilter) decide como traduzir para HTTP (422 por padrão).
 - Camadas internas **nunca** importam `HttpException` do Nest.
 
 ## Banco de dados

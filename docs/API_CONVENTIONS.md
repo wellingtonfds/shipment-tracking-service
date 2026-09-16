@@ -24,9 +24,9 @@ Todo DTO de request/response deve ter:
 ```json
 {
   "statusCode": 422,
-  "code": "MEU_CODIGO_DE_ERRO",
+  "code": "MY_ERROR_CODE",
   "message": "Descrição legível",
-  "path": "/api/v1/recurso",
+  "path": "/api/v1/customers/99",
   "timestamp": "2026-09-16T20:30:00.000Z"
 }
 ```

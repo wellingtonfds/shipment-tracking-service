@@ -24,7 +24,7 @@ async function bootstrap(): Promise<void> {
 
   const documentConfig = new DocumentBuilder()
     .setTitle('src-backend API')
-    .setDescription('Backend com fronteiras explícitas entre domínio, aplicação e infraestrutura.')
+    .setDescription('Backend with explicit boundaries between domain, application and infrastructure.')
     .setVersion('0.1.0')
     .addBearerAuth()
     .build();
@@ -34,8 +34,8 @@ async function bootstrap(): Promise<void> {
   await app.listen(port);
 
   const logger = new Logger('Bootstrap');
-  logger.log(`API em http://localhost:${port}/${prefix}`);
-  logger.log(`Swagger em http://localhost:${port}/docs`);
+  logger.log(`API at http://localhost:${port}/${prefix}`);
+  logger.log(`Swagger at http://localhost:${port}/docs`);
 }
 
 await bootstrap();

@@ -43,6 +43,6 @@ Backend REST construído sobre NestJS com **fronteiras explícitas** entre **dom
 ## Como evoluir
 
 1. Nova regra de negócio → entidade/value object em `src/domain` + port se precisar de I/O.
-2. Novo caso de uso → classe em `src/application/use-cases`, sem imports de Nest.
+2. Novo caso de uso → classe em `src/application/<feature>/use-cases`, sem imports de Nest.
 3. Exposição HTTP → controller + presenter em `src/infrastructure/http`, wiring no `HttpModule`.
 4. Persistência → model no `prisma/schema.prisma` + repository que implementa port do domínio. Após migrar, rode `prisma generate` (`npm run db:migrate` já encadeia).

@@ -59,7 +59,7 @@ Como criar uma feature nova:
 
 1. **Use-cases são classes puras** construídas via factory no módulo de infra — não usam `@Injectable`. DI por token string da feature (`application/<feature>/<feature>.tokens.ts`).
 2. **Ports definem o contrato**: a aplicação declara interfaces (`HealthCheckPort`); a infraestrutura implementa (`PrismaHealthCheckAdapter`). O domínio declara interfaces de repositório; a infra implementa com Prisma.
-3. **Tradução nas bordas**: model Prisma ↔ entidade de domínio acontece somente em `infrastructure/database/repositories/`. DTO HTTP ↔ output da aplicação acontece somente em presenters.
+3. **Tradução nas bordas**: model Prisma ↔ entidade de domínio acontece somente em `infrastructure/database/<feature>/`. DTO HTTP ↔ output da aplicação acontece somente em presenters.
 4. **Erros**: camadas internas lançam `DomainError` (com `code`); a infra traduz para status HTTP. Nunca `throw new HttpException(...)` dentro de use-case.
 5. **Env vars**: `process.env` é leitura de infraestrutura. O que a aplicação precisa deve entrar por construtor/parâmetro.
 
@@ -79,7 +79,7 @@ O teste de arquitetura escaneia os arquivos de `src/domain` e `src/application` 
 
 ```ts
 // src/application/health/use-cases/check-health.use-case.ts
-import { HealthCheckPort, HealthReport } from '../ports/health-check.port.js';
+import { HealthCheckPort, HealthReport } from '../health-check.port.js';
 
 export class CheckHealthUseCase {
   constructor(private readonly healthCheck: HealthCheckPort) {}
@@ -90,7 +90,7 @@ export class CheckHealthUseCase {
 **Correto — adapter na infra:**
 
 ```ts
-// src/infrastructure/database/prisma-health-check.adapter.ts
+// src/infrastructure/database/health/prisma-health-check.adapter.ts
 @Injectable()
 export class PrismaHealthCheckAdapter implements HealthCheckPort {
   constructor(private readonly prisma: PrismaService) {}

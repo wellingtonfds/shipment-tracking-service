@@ -10,8 +10,9 @@
                  └──────────────┬─────────────────────────────┘
                                 │ implementa ports / chama use-cases
                  ┌──────────────▼─────────────────────────────┐
-                 │              src/application               │
-                 │  casos de uso, ports de saída, orquestração │
+                  │              src/application               │
+                  │  casos de uso, orquestração, ports de saída │
+                  │  (sem entidade de domínio, ex. health)      │
                  └──────────────┬─────────────────────────────┘
                                 │ usa entidades / regras puras
                  ┌──────────────▼─────────────────────────────┐
@@ -40,11 +41,12 @@ main.ts (Swagger, ValidationPipe, prefixo)
 
 Dentro de cada camada, os arquivos são agrupados por **recurso de negócio** (`customers/`, `health/`), não por tipo técnico no primeiro nível. Convenções:
 
-- `src/domain/<feature>/` — entidade, `errors/` do recurso e `ports/` do recurso.
-- `src/application/<feature>/` — `<feature>.tokens.ts` (DI) e `use-cases/`.
+- `src/domain/<feature>/` — entidade, `errors/` do recurso (erros de negócio mapeados para HTTP) e `ports/` do recurso (port de repositório). Exceção: erros de validação ficam junto da entidade (ex.: `InvalidCustomerError` em `customer.entity.ts`).
+- `src/application/<feature>/` — `<feature>.tokens.ts` (DI) e `use-cases/`. Port de saída **sem entidade de domínio** (ex.: `HealthCheckPort`) vive aqui, em `application/<feature>/`.
 - `src/infrastructure/database/<feature>/` — adapters Prisma; `src/infrastructure/http/<feature>/` — module, controller, `dtos/` e presenter.
 - `shared/` (em qualquer camada) — código transversal a features: `DomainError` base, filtro global, `ErrorPresenter`.
 - Sem barrel `index.ts`: imports sempre por caminho direto (evita ciclos e mantém a direção de dependência visível).
+- Imports relativos usam extensão `.js` (`from './customer.entity.js'`) — exigência de `"type": "module"` + `moduleResolution: nodenext`. Nunca importar sem extensão.
 - Nova feature = replicar esse padrão + registrar o module no `HttpModule`.
 
 ## Composition root
@@ -73,7 +75,7 @@ src/
       errors/                # erros específicos do recurso
       ports/                 # repositórios do recurso
   infrastructure/            # pastas por feature; código compartilhado em shared/
-    config/                  # @nestjs/config
+    config/                  # @nestjs/config (configuration.ts mapeia PORT, API_PREFIX, NODE_ENV)
     database/
       database.module.ts     # @Global: PrismaService
       prisma.service.ts
@@ -109,6 +111,8 @@ src/
 - MSSQL não tem `enum` nativo — validar em domínio, persistir como `String`.
 
 ## Testes
+
+Runner: **Vitest** (`vitest.config.ts`; o e2e usa `vitest.config.e2e.ts` separado e precisa do banco no ar). Lint: **oxlint** type-aware (`npm run lint`).
 
 | Tipo | O que cobre | Onde |
 | --- | --- | --- |

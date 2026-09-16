@@ -1,8 +1,8 @@
 // Prisma schema — APENAS infraestrutura de persistência.
 // Este arquivo é detalhe de infraestrutura: domínio e aplicação NUNCA
 // importam nada gerado daqui. Toda tradução model <-> entidade de domínio
-// acontece em src/infrastructure/database/repositories/.
-// Novos models de negócio entram AQUI e suas interfaces (ports) em src/domain/ports/.
+// acontece em src/infrastructure/database/<feature>/.
+// Novos models de negócio entram AQUI e suas interfaces (ports) em src/domain/<feature>/ports/.
 
 generator client {
   provider = "prisma-client"

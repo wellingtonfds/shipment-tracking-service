@@ -17,6 +17,7 @@ Instruções para qualquer agente de código trabalhando neste repositório. Est
 | Fronteiras por camada (proibições), consequências práticas, exemplos certo/errado | [docs/DOMAIN_RULES.md](docs/DOMAIN_RULES.md) |
 | Convenções REST, documentação Swagger obrigatória, formato de erro, checklist de endpoint | [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) |
 | Setup passo a passo, scripts, dicas MSSQL, fluxo de trabalho | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Graphify (uso obrigatório, update pós-pull/pós-modificação) | [docs/GRAPHIFY.md](docs/GRAPHIFY.md) |
 
 ## Regras inegociáveis (resumo — detalhes nos docs acima)
 
@@ -26,6 +27,7 @@ Instruções para qualquer agente de código trabalhando neste repositório. Est
 4. Todo endpoint documenta Swagger: `@ApiTags`, `@ApiOperation`, `@ApiResponse` (sucesso + erros) e DTOs com `@ApiProperty` + `class-validator`. Ver [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md).
 5. Erros de camadas internas lançam `DomainError` (com `code`); nunca `HttpException` fora da infraestrutura.
 6. Prisma 7: `migrate dev` **não** gera o client automaticamente — rode `prisma generate` após qualquer mudança de schema (o `postinstall` também gera).
+7. Graphify é obrigatório: consulte o grafo (`graphify query/path/explain` ≡ `/graphify query/path/explain`) antes de explorar o código; atualize após `git pull` (build se `graphify-out/graph.json` não existir, senão `--update`) e após qualquer modificação de código. Ver [docs/GRAPHIFY.md](docs/GRAPHIFY.md).
 
 ## Verificação antes de concluir qualquer tarefa
 

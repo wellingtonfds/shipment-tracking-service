@@ -14,6 +14,11 @@ interface ErrorBody {
 export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
+  private readonly statusByCode: Record<string, HttpStatus> = {
+    CLIENTE_NOT_FOUND: HttpStatus.NOT_FOUND,
+    CLIENTE_EMAIL_IN_USE: HttpStatus.CONFLICT,
+  };
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -32,7 +37,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const timestamp = new Date().toISOString();
 
     if (exception instanceof DomainError) {
-      return { statusCode: HttpStatus.UNPROCESSABLE_ENTITY, code: exception.code, message: exception.message, path, timestamp };
+      return {
+        statusCode: this.statusByCode[exception.code] ?? HttpStatus.UNPROCESSABLE_ENTITY,
+        code: exception.code,
+        message: exception.message,
+        path,
+        timestamp,
+      };
     }
 
     if (exception instanceof HttpException) {

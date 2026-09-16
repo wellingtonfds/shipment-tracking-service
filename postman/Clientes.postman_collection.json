@@ -1,0 +1,244 @@
+{
+  "info": {
+    "_postman_id": "7f2a1c48-9d5e-4c3a-8b1e-clientes0001",
+    "name": "src-backend — Clientes",
+    "description": "CRUD de clientes da API src-backend.\n\n- Base: `{{baseUrl}}` (default `http://localhost:3000/api/v1`)\n- Dados do POST são gerados com as variáveis dinâmicas Faker do Postman (`{{$randomFullName}}`, `{{$randomEmail}}`, etc.) — cada execução gera um cliente diferente\n- O POST guarda o `id` criado em `{{clienteId}}`, usado pelos requests de leitura/atualização/remoção\n- Ordem sugerida (Runner): Lista → Criar → Detalhar → Atualizar → Remover",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1", "type": "string" },
+    { "key": "clienteId", "value": "", "type": "string" },
+    { "key": "emailGerado", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Clientes",
+      "item": [
+        {
+          "name": "Listar clientes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clientes?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes"],
+              "query": [
+                { "key": "page", "value": "1", "description": "Página (começa em 1)" },
+                { "key": "limit", "value": "10", "description": "Itens por página (1-100)" }
+              ]
+            },
+            "description": "Lista clientes paginados."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('resposta em menos de 1000ms', () => pm.expect(pm.response.responseTime).to.be.below(1000));",
+                  "const body = pm.response.json();",
+                  "pm.test('data é array', () => pm.expect(body.data).to.be.an('array'));",
+                  "pm.test('meta de paginação presente', () => pm.expect(body.meta).to.have.property('totalPages'));",
+                  "pm.test('campos do cliente corretos', () => {",
+                  "  if (body.data.length > 0) {",
+                  "    pm.expect(body.data[0]).to.have.all.keys(['id', 'nome', 'email', 'telefone', 'endereco', 'createdAt', 'updatedAt']);",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"{{$randomFullName}}\",\n  \"email\": \"{{$randomEmail}}\",\n  \"telefone\": \"{{$randomPhoneNumber}}\",\n  \"endereco\": \"{{$randomStreetAddress}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clientes",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes"]
+            },
+            "description": "Cria um novo cliente. Dados gerados pelo Faker do Postman (variáveis dinâmicas) — cada execução envia valores diferentes e realistas."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('resposta em menos de 1000ms', () => pm.expect(pm.response.responseTime).to.be.below(1000));",
+                  "const body = pm.response.json();",
+                  "pm.test('cliente criado com id', () => pm.expect(body.id).to.be.a('number'));",
+                  "pm.test('campos persistidos', () => {",
+                  "  pm.expect(body).to.have.property('nome');",
+                  "  pm.expect(body.email).to.contain('@');",
+                  "  pm.expect(body).to.have.property('telefone');",
+                  "  pm.expect(body).to.have.property('endereco');",
+                  "});",
+                  "pm.collectionVariables.set('clienteId', body.id);",
+                  "pm.collectionVariables.set('emailGerado', body.email);",
+                  "console.log('clienteId salvo:', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhar cliente",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clientes/{{clienteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes", "{{clienteId}}"]
+            },
+            "description": "Detalhes do cliente criado pelo request anterior (usa `{{clienteId}}`)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('id igual ao criado', () => pm.expect(String(body.id)).to.eql(pm.collectionVariables.get('clienteId')));",
+                  "pm.test('email igual ao criado', () => pm.expect(body.email).to.eql(pm.collectionVariables.get('emailGerado')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Atualizar cliente",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"{{$randomFullName}}\",\n  \"telefone\": \"{{$randomPhoneNumber}}\",\n  \"endereco\": \"{{$randomStreetAddress}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clientes/{{clienteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes", "{{clienteId}}"]
+            },
+            "description": "Atualização parcial: nome/telefone/endereço regenerados pelo Faker; email é mantido (não enviado)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('email não foi alterado', () => pm.expect(body.email).to.eql(pm.collectionVariables.get('emailGerado')));",
+                  "pm.test('updatedAt >= createdAt', () => pm.expect(new Date(body.updatedAt) >= new Date(body.createdAt)).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Remover cliente",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clientes/{{clienteId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes", "{{clienteId}}"]
+            },
+            "description": "Remove o cliente criado nesta execução (responde 204 sem corpo)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 204 (sem corpo)', () => pm.response.to.have.status(204));",
+                  "pm.test('detalhar agora retorna 404', async () => {",
+                  "  const resposta = await pm.sendRequest(pm.collectionVariables.get('baseUrl') + '/clientes/' + pm.collectionVariables.get('clienteId'));",
+                  "  pm.expect(resposta.status).to.eql(404);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detalhar cliente inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/clientes/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes", "999999"]
+            },
+            "description": "Cenário de erro: cliente inexistente deve responder 404 com `code: CLIENTE_NOT_FOUND`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('code CLIENTE_NOT_FOUND', () => pm.expect(pm.response.json().code).to.eql('CLIENTE_NOT_FOUND'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar email duplicado (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"{{$randomFullName}}\",\n  \"email\": \"{{emailGerado}}\",\n  \"telefone\": \"{{$randomPhoneNumber}}\",\n  \"endereco\": \"{{$randomStreetAddress}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clientes",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes"]
+            },
+            "description": "Cenário de erro: tenta recriar o cliente com o email já usado nesta execução (`{{emailGerado}}`). Deve responder 409 `CLIENTE_EMAIL_IN_USE`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('code CLIENTE_EMAIL_IN_USE', () => pm.expect(pm.response.json().code).to.eql('CLIENTE_EMAIL_IN_USE'));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Rotas do recurso Clientes. Execute em ordem: os dois últimos requests são cenários de erro e dependem de um POST bem-sucedido antes."
+    }
+  ]
+}

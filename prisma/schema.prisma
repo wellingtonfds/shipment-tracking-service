@@ -13,8 +13,20 @@ datasource db {
   provider = "sqlserver"
 }
 
-// Nenhum model de negócio no bootstrap.
-// Observações MSSQL (documentar antes de adicionar models):
+// Model Cliente: CRUD de clientes (nome, email, telefone, endereço).
+// Observações MSSQL:
 // - Sem enum nativo: usar String + validação na camada de domínio.
 // - autoincrement() em vez de @default(autoincrement()).
 // - migrate dev usa um shadow database no servidor (sa precisa de permissão).
+
+model Cliente {
+  id        Int      @id @default(autoincrement())
+  nome      String   @db.NVarChar(120)
+  email     String   @unique @db.NVarChar(160)
+  telefone  String   @db.NVarChar(40)
+  endereco  String   @db.NVarChar(255)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("clientes")
+}

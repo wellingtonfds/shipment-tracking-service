@@ -1,0 +1,29 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- CreateTable
+CREATE TABLE [dbo].[clientes] (
+    [id] INT NOT NULL IDENTITY(1,1),
+    [nome] NVARCHAR(120) NOT NULL,
+    [email] NVARCHAR(160) NOT NULL,
+    [telefone] NVARCHAR(40) NOT NULL,
+    [endereco] NVARCHAR(255) NOT NULL,
+    [createdAt] DATETIME2 NOT NULL CONSTRAINT [clientes_createdAt_df] DEFAULT CURRENT_TIMESTAMP,
+    [updatedAt] DATETIME2 NOT NULL,
+    CONSTRAINT [clientes_pkey] PRIMARY KEY CLUSTERED ([id]),
+    CONSTRAINT [clientes_email_key] UNIQUE NONCLUSTERED ([email])
+);
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH

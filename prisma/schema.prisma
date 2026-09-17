@@ -19,15 +19,111 @@ datasource db {
 // - Sem enum nativo: usar String + validação na camada de domínio.
 // - autoincrement() em vez de @default(autoincrement()).
 // - migrate dev usa um shadow database no servidor (sa precisa de permissão).
+//
+// Documentação canônica do modelo de dados: docs/DATABASE.md
+// Definição de negócio do tracking: docs/TRACKING_DEFINITION.md
 
 model Customer {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.NVarChar(120)
-  email     String   @unique @db.NVarChar(160)
-  phone     String   @db.NVarChar(40)
-  address   String   @db.NVarChar(255)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        Int       @id @default(autoincrement())
+  name      String    @db.NVarChar(120)
+  email     String    @unique @db.NVarChar(160)
+  phone     String    @db.NVarChar(40)
+  address   String    @db.NVarChar(255)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  users     User[]
+  shipments Shipment[]
 
   @@map("customers")
+}
+
+// Usuário do sistema (perfil de acesso). Substitui a antiga noção de "Operator":
+// um único model User com role — ADMINISTRATOR | OPERATOR | CUSTOMER.
+// Regra de domínio (validada fora do schema, Prisma não tem FK condicional):
+// role = CUSTOMER exige customerId; role = ADMINISTRATOR/OPERATOR exige customerId NULL.
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.NVarChar(120)
+  email        String   @unique @db.NVarChar(160)
+  passwordHash String   @db.NVarChar(255) // somente hash; autenticação fora de escopo nesta fase
+  role         String   @default("OPERATOR") @db.NVarChar(20)
+  active       Boolean  @default(true)
+  customerId   Int?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shipments    Shipment[]      @relation("ShipmentHandler") // cargas geridas pelo usuário (obrigatório em toda carga)
+  events       ShipmentEvent[] @relation("EventAuthor") // autoria opcional de eventos manuais
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+  @@index([role, active])
+  @@index([customerId])
+}
+
+// Carga rastreada (Viagem/Carga). Status persistido como String UPPER,
+// fluxo CREATED -> IN_TRANSIT -> TRANSFERRED -> DELIVERED modelado no domínio.
+model Shipment {
+  id                    Int       @id @default(autoincrement())
+  cargoCode             String    @unique @db.NVarChar(40) // código de carga (único) — chave natural de rastreamento
+  status                String    @default("CREATED") @db.NVarChar(20)
+  originCity            String    @db.NVarChar(120)
+  originCountry         String    @db.NVarChar(80)
+  originLatitude        Decimal?  @db.Decimal(9, 6)
+  originLongitude       Decimal?  @db.Decimal(9, 6)
+  destinationCity       String    @db.NVarChar(120)
+  destinationCountry    String    @db.NVarChar(80)
+  destinationLatitude   Decimal?  @db.Decimal(9, 6)
+  destinationLongitude  Decimal?  @db.Decimal(9, 6)
+  currentLocationText   String?   @db.NVarChar(255)
+  currentLatitude       Decimal?  @db.Decimal(9, 6)
+  currentLongitude      Decimal?  @db.Decimal(9, 6)
+  geocodedAt            DateTime? // cache da geocodificação OSS (Nominatim/OSM)
+  geocodeProvider       String?   @db.NVarChar(20)
+  departureDate         DateTime
+  estimatedDeliveryDate DateTime
+  deliveredAt           DateTime?
+  customerId            Int
+  customer              Customer  @relation(fields: [customerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  handledById           Int // toda carga exige usuário responsável (inclusive integração)
+  handledBy             User      @relation("ShipmentHandler", fields: [handledById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  events                ShipmentEvent[]
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("shipments")
+  @@index([status])
+  @@index([customerId, status])
+  @@index([handledById])
+  @@index([departureDate, estimatedDeliveryDate])
+  @@index([status, estimatedDeliveryDate])
+}
+
+// Ocorrência de status/localização (Histórico/Movimentação).
+// Toda atualização via PUT /tracking/{cargoCode}/status gera um registro aqui
+// na mesma transação da atualização da carga (definido em docs/TRACKING_DEFINITION.md).
+//
+// Tabela PARTICIONADA por mês de occurredAt (migration partition_shipment_events_monthly,
+// script de manutenção: npm run db:partition — ver docs/DATABASE.md). Regra do MSSQL:
+// toda chave única em tabela particionada deve conter a coluna de partição, por isso
+// a PK é composta (id, occurredAt). Consequência no client: sem findUnique({ id }) —
+// ports/adapters usam where composto { id_occurredAt } ou findFirst.
+model ShipmentEvent {
+  id           Int       @default(autoincrement())
+  shipmentId   Int
+  shipment     Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  status       String    @db.NVarChar(20) // snapshot do status após a ocorrência (UPPER)
+  occurredAt   DateTime  @default(now()) // data/hora da ocorrência (retroativa permitida em evento manual)
+  locationText String    @db.NVarChar(255)
+  latitude     Decimal?  @db.Decimal(9, 6)
+  longitude    Decimal?  @db.Decimal(9, 6)
+  notes        String?   @db.NVarChar(500)
+  createdById  Int?
+  createdBy    User?     @relation("EventAuthor", fields: [createdById], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  createdAt    DateTime  @default(now())
+
+  @@id([id, occurredAt])
+  @@map("shipment_events")
+  @@index([shipmentId, occurredAt(sort: Desc)])
+  @@index([status])
+  @@index([occurredAt(sort: Desc)])
 }

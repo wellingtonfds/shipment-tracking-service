@@ -17,6 +17,8 @@ Instruções para qualquer agente de código trabalhando neste repositório. Est
 | Fronteiras por camada (proibições), consequências práticas, exemplos certo/errado | [docs/DOMAIN_RULES.md](docs/DOMAIN_RULES.md) |
 | Convenções REST, documentação Swagger obrigatória, formato de erro, checklist de endpoint | [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) |
 | Setup passo a passo, scripts, dicas MSSQL, fluxo de trabalho | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Modelo de dados canônico (ER, índices, convenções) | [docs/DATABASE.md](docs/DATABASE.md) |
+| Definição de negócio do tracking (endpoints futuros, regras) | [docs/TRACKING_DEFINITION.md](docs/TRACKING_DEFINITION.md) |
 | Collection Postman de Customers: import, Faker dinâmico, Runner, Newman | [docs/POSTMAN_TESTS.md](docs/POSTMAN_TESTS.md) |
 | Graphify (uso obrigatório, update pós-pull/pós-modificação) | [docs/GRAPHIFY.md](docs/GRAPHIFY.md) |
 

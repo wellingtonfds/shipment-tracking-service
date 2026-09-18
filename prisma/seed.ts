@@ -5,8 +5,21 @@
 // - Upsets: customer por email, user por email, shipment por cargoCode; eventos re-inseridos só se a carga for nova.
 // - passwordHash é placeholder ("seed-only-hash"); hashing real (bcrypt/argon2) entra na fase de auth.
 import 'dotenv/config';
+import { randomBytes, scrypt as scryptCallback } from 'node:crypto';
+import { promisify } from 'node:util';
 import { PrismaMssql } from '@prisma/adapter-mssql';
 import { PrismaClient } from '../src/generated/prisma/client.js';
+
+// Default development password for all seeded users (dev only, documented in docs/DEVELOPMENT.md).
+const SEED_DEFAULT_PASSWORD = 'Senha123!';
+
+const scryptAsync = promisify(scryptCallback);
+
+async function hashPassword(plaintext: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const derived = (await scryptAsync(plaintext, salt, 64, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 })) as Buffer;
+  return ['scrypt', 16384, 8, 1, salt, derived.toString('hex')].join('$');
+}
 
 const customers = [
   { name: 'Maria Silva', email: 'maria.silva@example.com', phone: '(11) 98888-7777', address: 'Av. Paulista, 1000 - apto 42, São Paulo/SP' },
@@ -149,17 +162,28 @@ async function main(): Promise<void> {
     for (const c of await prisma.customer.findMany({ select: { id: true, email: true } })) {
       customerByEmail.set(c.email, c);
     }
+    const passwordHash = await hashPassword(SEED_DEFAULT_PASSWORD);
     for (const user of users) {
       const customerId = user.customerEmail ? (customerByEmail.get(user.customerEmail)?.id ?? null) : null;
       if (user.role === 'CUSTOMER' && customerId === null) {
         throw new Error(`Seed error: customer user ${user.email} references unknown customer ${user.customerEmail}`);
       }
-      const data = { name: user.name, role: user.role, active: user.active, customerId, passwordHash: 'seed-only-hash' };
+      const data = { name: user.name, role: user.role, active: user.active, customerId };
+      // passwordHash is set only on create: re-seeding never resets an existing password
       await prisma.user.upsert({
         where: { email: user.email },
         update: { name: data.name, role: data.role, active: data.active, customerId: data.customerId },
-        create: { email: user.email, ...data },
+        create: { email: user.email, passwordHash, ...data },
       });
+    }
+    // One-time migration: users seeded with the old 'seed-only-hash' placeholder
+    // get the real default-password hash (no-op once migrated).
+    const migrated = await prisma.user.updateMany({
+      where: { passwordHash: 'seed-only-hash' },
+      data: { passwordHash },
+    });
+    if (migrated.count > 0) {
+      console.log(`Seed: migrated ${migrated.count} placeholder passwordHash(es) to the default dev password.`);
     }
     console.log(`Seed: ${users.length} users (upsert by email).`);
 

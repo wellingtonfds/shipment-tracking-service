@@ -11,9 +11,11 @@ import { UpdateCustomerDto } from './dtos/update-customer.dto.js';
 import { ListCustomersQueryDto } from './dtos/list-customers-query.dto.js';
 import { CustomerPresenter, ListCustomersPresenter } from './customer.presenter.js';
 import { ErrorPresenter } from '../shared/presenters/error.presenter.js';
+import { Public } from '../shared/guards/public.decorator.js';
 
 @ApiTags('Customers')
 @ApiResponse({ status: 400, type: ErrorPresenter, description: 'Invalid input (non-numeric id, invalid body)' })
+@Public()
 @Controller('customers')
 export class CustomersController {
   constructor(

@@ -35,6 +35,13 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 | `npm run db:seed` | popula o banco com massa fixa/idempotente: customers (15), users (13, por perfil), shipments (12) e shipment_events (histórico por carga) |
 | `npm run db:partition` | idempotente: cria fronteiras mensais vazias de `shipment_events` até cobrir 24 meses futuros (ver docs/DATABASE.md) |
 
+## Autenticação (dev)
+
+- `.env` precisa de `JWT_SECRET` (gerar com `openssl rand -base64 32`) e `JWT_EXPIRES_IN` (ex.: `8h`; ver `.env.example`).
+- Login: `POST /api/v1/auth/login` com `{ email, password }` → `{ token }`. Usar como `Authorization: Bearer <token>`.
+- Senha padrão de **desenvolvimento** de todos os usuários do seed: `Senha123!` (ex.: `admin@logistica.com`). O seed só define a senha no `create`; nunca commitar senha real.
+- Rotas `/operadores/*` exigem `role = ADMINISTRATOR`, exceto `/operadores/me` (qualquer perfil autenticado).
+
 ## Dicas MSSQL
 
 - Senha do `sa` precisa de maiúscula, minúscula, dígito e símbolo (>= 8 chars), senão o container reinicia em loop.

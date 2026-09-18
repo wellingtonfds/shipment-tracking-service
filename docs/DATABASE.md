@@ -41,7 +41,7 @@ erDiagram
         int id PK
         string name
         string email UK
-        string passwordHash "placeholder ate a fase de auth"
+        string passwordHash "scrypt (node:crypto), nunca em texto"
         string role "ADMINISTRATOR | OPERATOR | CUSTOMER"
         bool active
         int customerId FK "NULL obrigatorio iff role != CUSTOMER"
@@ -195,5 +195,5 @@ Evolução futura, simétrica ao split: job/script com `SWITCH` da partição ma
 - Idempotente: upsert de `customer` por `email`, `user` por `email`, `shipment` por `cargoCode`.
 - Eventos são inseridos **apenas** quando a carga não tem histórico (re-seed não duplica `shipment_events`).
 - Massa: 15 customers, 13 users (2 admin, 4 operadores, 1 integração `integration@system.local`, 6 usuários CLIENTE vinculados a customers), 12 shipments (rotas BR + 2 internacionais) cobrindo todos os status, ~2–4 eventos por carga cobrindo `CREATED → IN_TRANSIT → TRANSFERRED → DELIVERED`.
-- `passwordHash` no seed é placeholder (`"seed-only-hash"`); hashing real entra na fase de autenticação.
+- `passwordHash` usa scrypt (`node:crypto`, salt aleatório, comparação em tempo constante); o seed define a senha padrão de dev apenas no `create` (re-seed nunca reseta senhas) e migra o antigo placeholder uma única vez. Nunca expor em responses (presenters omitem o campo).
 - A timeline de eventos deriva de `departureDate`/`estimatedDeliveryDate` (offsets proporcionais) — dados coerentes entre carga e histórico.

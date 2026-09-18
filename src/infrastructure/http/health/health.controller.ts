@@ -3,8 +3,10 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CHECK_HEALTH_USE_CASE } from '../../../application/health/health.tokens.js';
 import { CheckHealthUseCase } from '../../../application/health/use-cases/check-health.use-case.js';
 import { HealthPresenter } from './health.presenter.js';
+import { Public } from '../shared/guards/public.decorator.js';
 
 @ApiTags('Health')
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(

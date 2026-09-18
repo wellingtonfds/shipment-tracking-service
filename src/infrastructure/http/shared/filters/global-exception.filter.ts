@@ -17,6 +17,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly statusByCode: Record<string, HttpStatus> = {
     CUSTOMER_NOT_FOUND: HttpStatus.NOT_FOUND,
     CUSTOMER_EMAIL_IN_USE: HttpStatus.CONFLICT,
+    USER_NOT_FOUND: HttpStatus.NOT_FOUND,
+    USER_EMAIL_IN_USE: HttpStatus.CONFLICT,
+    USER_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+    USER_CUSTOMER_LINK_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
+    INVALID_CREDENTIALS: HttpStatus.UNAUTHORIZED,
+    FORBIDDEN: HttpStatus.FORBIDDEN,
   };
 
   catch(exception: unknown, host: ArgumentsHost): void {

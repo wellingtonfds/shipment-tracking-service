@@ -82,19 +82,36 @@ futuros: `GET /historico` sempre com janela temporal e teto de paginação.
 - Policy Nominatim: máx. 1 req/s, `User-Agent` identificável, fallback textual quando a geocodificação falha (colunas nullable).
 - Fronteira: port `GeocodePort` (aplicação) + adapter HTTP na infraestrutura. Domínio nunca faz fetch.
 
-## Endpoints (planned — não implementados)
+## Endpoints (gestão de usuários: implementados; restante: planned)
 
 Prefixo global `/api/v1`. Controllers finos: validam → 1 use-case → presenter; tudo Swagger-documented (`@ApiTags`, `@ApiOperation`, `@ApiResponse`, DTOs com `@ApiProperty` + `class-validator`).
 
-### Gestão de usuários (ex-"Operadores")
+### Gestão de usuários — Operadores (implementado)
 
-| Método | Rota | Uso-case futuro | Notas |
+Rota mantida em português (`/operadores`) por exigência da spec — exceção documentada à
+regra English-only (identificadores de código seguem em inglês: `User`, `UsersController`).
+
+| Método | Rota | Use-case | Notas |
 | --- | --- | --- | --- |
-| GET | `/users` | `ListUsersUseCase` | filtro por `role`/`active` |
-| GET | `/users/{id}` | `GetUserUseCase` | 404 `USER_NOT_FOUND` |
-| POST | `/users` | `CreateUserUseCase` | valida regra `role`/`customerId`; email único (`USER_EMAIL_IN_USE`) |
-| PUT | `/users/{id}` | `UpdateUserUseCase` | troca de `role` revalida vínculo |
-| DELETE | `/users/{id}` | `DeleteUserUseCase` | bloqueado se houver cargas → sugerir `active = false` |
+| GET | `/operadores` | `ListUsersUseCase` | **ADMINISTRATOR**. Filtros `role`/`active` combináveis; paginação com teto (`limit` ≤ 100) |
+| GET | `/operadores/{id}` | `GetUserUseCase` | **ADMINISTRATOR. Nunca pública.** 404 `USER_NOT_FOUND`; nunca retorna `passwordHash` |
+| POST | `/operadores` | `CreateUserUseCase` | **ADMINISTRATOR**. Valida `role`/`customerId`; email único (`USER_EMAIL_IN_USE`); senha com hash scrypt |
+| PUT | `/operadores/{id}` | `UpdateUserUseCase` | **ADMINISTRATOR**. Parcial; troca de `role` revalida o vínculo; senha re-hash |
+| DELETE | `/operadores/{id}` | `DeleteUserUseCase` | **ADMINISTRATOR**. Soft-delete (`active = false`, 204) — FK `NoAction` impede remoção de quem tem cargas |
+| GET | `/operadores/me` | `GetMyProfileUseCase` | Qualquer perfil autenticado. `id` deriva do token, nunca da requisição |
+| PUT | `/operadores/me` | `UpdateMyProfileUseCase` | Qualquer perfil autenticado. Só `name`/`email`/`password` (campos extras são rejeitados com 400) |
+
+### Autenticação (implementado)
+
+| Método | Rota | Use-case | Notas |
+| --- | --- | --- | --- |
+| POST | `/auth/login` | `LoginUseCase` | **Pública.** Retorna `{ token }`; erro genérico `INVALID_CREDENTIALS` (401) sem vazar existência do email; inativos não autenticam |
+
+Segurança: JWT (Bearer) assinado com `JWT_SECRET` (`JWT_EXPIRES_IN`, default `8h`).
+`AuthGuard` global valida o token e anexa o principal `{ userId, role, customerId }`;
+`RolesGuard` global aplica `@Roles(...)`. `@Public()` só em `/auth/login`, `/health` e
+`/customers` (legado desta fase). Senhas com scrypt (`node:crypto`, salt aleatório,
+comparação em tempo constante).
 
 ### Rastreamento
 

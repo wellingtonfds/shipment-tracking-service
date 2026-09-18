@@ -16,7 +16,11 @@ implementação futura** — nenhum endpoint deste módulo existe ainda no códi
 | Histórico / Movimentação | `ShipmentEvent` |
 | Registrar nova carga | `POST /tracking` |
 
-Rotas e campos JSON seguem inglês (ex.: `/api/v1/shipments/{cargoCode}/history`), não a grafia PT da spec.
+Rotas e path/query params seguem português, como na spec de referência
+(`codigoCarga`, `idCliente`, `idOperador`, `localizacao`, `entrega`, `historico`);
+campos de corpo (body JSON), identificadores de código, banco e mensagens seguem inglês
+(ex.: `cargoCode`, `Shipment`, `originCity`). Exceção documentada à regra English-only,
+no mesmo espírito das rotas `/operadores` e `/clientes`.
 
 ## Fluxo de status (modelado no domínio, nunca em condicionais de controller)
 
@@ -40,10 +44,16 @@ CREATED ──▶ IN_TRANSIT ──▶ TRANSFERRED ──▶ DELIVERED
 | `OPERATOR` | Vinculado ao seu cliente (`users.customerId` obrigatório); cria/gere cargas; **sem** acesso a `GET /history` global |
 | `CUSTOMER` | **Exclusivamente as cargas do próprio `Customer`** — leitura (detalhe, histórico da própria carga); sem criação/update/delete |
 
-Regra crítica: a restrição do perfil `CUSTOMER` **deriva do token e nunca de parâmetro
+Regra crítica: a restrição dos perfis `OPERATOR`/`CUSTOMER` **deriva do token e nunca de parâmetro
 da requisição**. O principal autenticado (`userId, role, customerId`) é injetado pela
-infra (guard JWT futuro) no use-case; se `role = CUSTOMER`, o use-case **sobrescreve/
-ignora** qualquer `idCliente` recebido e força `where.customerId = principal.customerId`.
+infra (guard JWT) no use-case:
+- se `role = CUSTOMER` ou `OPERATOR`, o use-case **sobrescreve/ignora** qualquer `idCliente`
+  recebido e força `where.customerId = principal.customerId`;
+- na escrita, `OPERATOR` cria/gere **apenas cargas do próprio cliente** (`POST /tracking`
+  usa `customerId` do token e `handledBy = self`); `CUSTOMER` é read-only (bloqueio por `@Roles`
+  + checagem no use-case);
+- lookup por `codigoCarga` fora do escopo retorna `SHIPMENT_NOT_FOUND` (404), sem vazar
+  existência entre clientes.
 `CUSTOMER` sem vínculo no token → `CUSTOMER_SCOPE_MISSING`.
 
 Vínculo usuário↔cliente: `users.customerId` obrigatório se `role ∈ {OPERATOR, CUSTOMER}`,
@@ -76,9 +86,13 @@ estão em [DATABASE.md](./DATABASE.md#volumetria-de-referência-e-limites)
 (seções "Volumetria" e "Particionamento"). Regras derivadas para os endpoints
 futuros: `GET /historico` sempre com janela temporal e teto de paginação.
 
-## Geolocalização (Nominatim / OSM — API OSS)
-- Origem/destino geocodificados **uma vez** na criação da carga; lat/long persistidos com `geocodedAt` + `geocodeProvider = "NOMINATIM"` (cache; nunca re-geocodificar `geocodedAt != NULL`).
-- `current*` é atualizado pelos endpoints de status/localização (texto e/ou coordenadas vindas da operação), sem chamada externa obrigatória.
+## Geolocalização (Nominatim / OSM — API OSS, adiada)
+- Nesta fase, **sem chamada externa**: origem/destino/atual são CRUD básico (texto + coordenadas
+  opcionais vindas da operação); `geocodedAt`/`geocodeProvider` ficam `NULL`.
+- Futuro: origem/destino geocodificados **uma vez** na criação da carga; lat/long persistidos com `geocodedAt` + `geocodeProvider = "NOMINATIM"` (cache; nunca re-geocodificar `geocodedAt != NULL`).
+- A localização atual **não é persistida na carga**: os endpoints de status/localização/entrega
+  registram a localização apenas no `ShipmentEvent`; a localização atual é sempre a do último evento
+  (`occurredAt DESC, id DESC`), sem chamada externa obrigatória.
 - Policy Nominatim: máx. 1 req/s, `User-Agent` identificável, fallback textual quando a geocodificação falha (colunas nullable).
 - Fronteira: port `GeocodePort` (aplicação) + adapter HTTP na infraestrutura. Domínio nunca faz fetch.
 
@@ -113,33 +127,34 @@ Segurança: JWT (Bearer) assinado com `JWT_SECRET` (`JWT_EXPIRES_IN`, default `8
 `/customers` (legado desta fase). Senhas com scrypt (`node:crypto`, salt aleatório,
 comparação em tempo constante).
 
-### Rastreamento
+### Rastreamento (implementado)
 
-| Método | Rota | Uso-case futuro | Notas |
+| Método | Rota | Use-case | Notas |
 | --- | --- | --- | --- |
-| POST | `/tracking` | `CreateShipmentUseCase` | geocodifica origem/destino (Nominatim), valida datas + cargoCode único |
-| GET | `/tracking` | `ListShipmentsUseCase` | filtros `status`, `idCliente`, `idOperador` combináveis; ordenação + paginação com teto de `limit`; scoping `CUSTOMER` via token |
-| GET | `/tracking/{cargoCode}` | `GetShipmentUseCase` | detalhes completos + status atual |
-| PUT | `/tracking/{cargoCode}/status` | `UpdateShipmentStatusUseCase` | transação: update da carga + `ShipmentEvent` (ver Concorrência) |
-| PUT | `/tracking/{cargoCode}/localizacao` | `UpdateShipmentLocationUseCase` | só `current*`; também gera evento de movimentação |
-| PUT | `/tracking/{cargoCode}/entrega` | `MarkShipmentDeliveredUseCase` | seta `DELIVERED` + `deliveredAt` + evento final |
-| DELETE | `/tracking/{cargoCode}` | `CancelShipmentUseCase` | cancelamento; `Cascade` apaga histórico |
+| POST | `/tracking` | `CreateShipmentUseCase` | valida datas + cargoCode único; OPERATOR usa escopo do token (`handledBy = self`), ADMINISTRATOR informa `customerId`+`handledById`; cria evento inicial `CREATED` na mesma transação |
+| GET | `/tracking` | `ListShipmentsUseCase` | filtros `status`, `idCliente`, `idOperador`, janelas de embarque/entrega, combináveis; ordenação + paginação com teto de `limit`; scoping via token |
+| GET | `/tracking/{codigoCarga}` | `GetShipmentUseCase` | detalhes completos + status atual |
+| PUT | `/tracking/{codigoCarga}/status` | `UpdateShipmentStatusUseCase` | transação: update de status da carga + `ShipmentEvent` com a localização (ver Concorrência) |
+| PUT | `/tracking/{codigoCarga}/localizacao` | `UpdateShipmentLocationUseCase` | registra apenas um evento de movimentação (append, sem tocar na carga) |
+| PUT | `/tracking/{codigoCarga}/entrega` | `MarkShipmentDeliveredUseCase` | seta `DELIVERED` + `deliveredAt` + evento final (de qualquer status não-terminal) |
+| DELETE | `/tracking/{codigoCarga}` | `CancelShipmentUseCase` | remoção física; `Cascade` apaga histórico |
 
-### Histórico
+### Histórico (implementado)
 
-| Método | Rota | Uso-case futuro | Notas |
+| Método | Rota | Use-case | Notas |
 | --- | --- | --- | --- |
-| GET | `/tracking/{cargoCode}/historico` | `GetShipmentHistoryUseCase` | cronológica inversa (índice `(shipmentId, occurredAt DESC)`) |
-| GET | `/historico` | `ListShipmentEventsUseCase` | **restrito a `ADMINISTRATOR`** |
-| POST | `/historico/{cargoCode}` | `AddShipmentEventUseCase` | ocorrência manual (uso interno/admin), `occurredAt` retroativa permitida |
+| GET | `/tracking/{codigoCarga}/historico` | `GetShipmentHistoryUseCase` | cronológica inversa (índice `(shipmentId, occurredAt DESC)`) |
+| GET | `/historico` | `ListShipmentEventsUseCase` | **restrito a `ADMINISTRATOR`**; exige janela temporal + paginação com teto |
+| POST | `/historico/{codigoCarga}` | `AddShipmentEventUseCase` | ocorrência manual (uso interno/admin), `occurredAt` retroativa permitida; só histórico, sem mover a carga |
 | GET | `/tracking/status/{status}` | `ListShipmentsByStatusUseCase` | atalho de filtro |
 
 ### Mapeamento de erros (DomainError → HTTP)
 
 | `code` | HTTP | Situação |
 | --- | --- | --- |
-| `SHIPMENT_NOT_FOUND` | 404 | carga inexistente para qualquer operação |
+| `SHIPMENT_NOT_FOUND` | 404 | carga inexistente (ou fora do escopo do token) para qualquer operação |
 | `SHIPMENT_CARGO_CODE_IN_USE` | 409 | criação duplicada (checagem semântica) |
+| `SHIPMENT_CONFLICT` | 409 | contenção otimista não resolvida após retries — cliente deve repetir a operação |
 | `SHIPMENT_INVALID_TRANSITION` | 422 | transição de status proibida |
 | `SHIPMENT_INVALID_DATES` | 422 | `estimatedDeliveryDate < departureDate` |
 | `SHIPMENT_HANDLER_REQUIRED` / `SHIPMENT_HANDLER_INACTIVE` | 422 | responsável ausente/inativo |

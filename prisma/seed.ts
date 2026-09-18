@@ -100,6 +100,8 @@ const INTERMEDIATE_STOPS: Record<string, Array<[string, number, number]>> = {
 
 // Event timeline per shipment — exercises the flow CREATED -> IN_TRANSIT -> TRANSFERRED -> DELIVERED.
 // Each event day-offset is proportional to the shipment's total travel time.
+// The latest event carries the shipment's `current` position (the current location
+// is derived from the latest event, never stored on the shipment row).
 function buildEvents(shipment: ShipmentSeed, departure: Date, estimated: Date): Array<{ status: string; occurredAt: Date; locationText: string; latitude: number; longitude: number; notes: string }> {
   const stops: Array<[string, number, number]> = [
     [shipment.origin[0] as string, shipment.origin[2] as number, shipment.origin[3] as number],
@@ -116,7 +118,8 @@ function buildEvents(shipment: ShipmentSeed, departure: Date, estimated: Date): 
     DELIVERED: 'Delivered to consignee',
   };
   return statuses.slice(0, upTo + 1).map((status, i) => {
-    const stop = stops[Math.min(i, stops.length - 1)];
+    // The latest event (the cargo's current status) reports the `current` position.
+    const stop = i === upTo ? shipment.current : stops[Math.min(i, stops.length - 1)];
     return {
       status,
       occurredAt: days(departure, Math.round((i * totalDays) / Math.max(1, upTo))),
@@ -206,7 +209,6 @@ async function main(): Promise<void> {
         originLatitude: s.origin[2], originLongitude: s.origin[3],
         destinationCity: s.destination[0], destinationCountry: s.destination[1],
         destinationLatitude: s.destination[2], destinationLongitude: s.destination[3],
-        currentLocationText: s.current[0], currentLatitude: s.current[1], currentLongitude: s.current[2],
         geocodedAt: new Date(), geocodeProvider: 'NOMINATIM',
         departureDate,
         estimatedDeliveryDate,

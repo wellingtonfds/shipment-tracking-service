@@ -6,9 +6,10 @@ import { RolesGuard } from './shared/guards/roles.guard.js';
 import { HealthModule } from './health/health.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { UsersModule } from './users/users.module.js';
+import { TrackingModule } from './tracking/tracking.module.js';
 
 @Module({
-  imports: [HealthModule, CustomersModule, UsersModule],
+  imports: [HealthModule, CustomersModule, UsersModule, TrackingModule],
   providers: [
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     // AuthGuard first: attaches the principal; RolesGuard second: enforces @Roles().

@@ -74,9 +74,6 @@ model Shipment {
   destinationCountry    String    @db.NVarChar(80)
   destinationLatitude   Decimal?  @db.Decimal(9, 6)
   destinationLongitude  Decimal?  @db.Decimal(9, 6)
-  currentLocationText   String?   @db.NVarChar(255)
-  currentLatitude       Decimal?  @db.Decimal(9, 6)
-  currentLongitude      Decimal?  @db.Decimal(9, 6)
   geocodedAt            DateTime? // cache da geocodificação OSS (Nominatim/OSM)
   geocodeProvider       String?   @db.NVarChar(20)
   departureDate         DateTime

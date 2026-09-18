@@ -15,7 +15,8 @@ tabelas, relacionamentos, índices e convenções. A definição de negócio do 
 | Código de carga | `cargoCode` |
 | Histórico / Movimentação | `ShipmentEvent` (tabela `shipment_events`) |
 | Status: Iniciada, Em Trânsito, Transbordo, Entregue | `CREATED`, `IN_TRANSIT`, `TRANSFERRED`, `DELIVERED` |
-| Local de origem / destino / atual | `origin*` / `destination*` / `current*` |
+| Local de origem / destino | `origin*` / `destination*` (colunas de `shipments`) |
+| Local atual da carga | localização do **último `ShipmentEvent`** (`occurredAt DESC, id DESC`) — nunca persistida em `shipments` |
 | Usuário responsável pela carga | `handledBy` (FK `handledById`) |
 
 ## Modelo de dados (ER)
@@ -60,9 +61,6 @@ erDiagram
         string destinationCountry
         decimal destinationLatitude "NULL"
         decimal destinationLongitude "NULL"
-        string currentLocationText "NULL"
-        decimal currentLatitude "NULL"
-        decimal currentLongitude "NULL"
         datetime geocodedAt "NULL - cache do geocoder"
         string geocodeProvider "NULL - ex NOMINATIM"
         datetime departureDate
@@ -110,7 +108,7 @@ erDiagram
 | `shipments(handledById)` | `GET /tracking?idOperador=` |
 | `shipments(departureDate, estimatedDeliveryDate)` | filtro por período de embarque/entrega |
 | `shipments(status, estimatedDeliveryDate)` | listagem paginada/ordenada com teto de `limit` |
-| `shipment_events(shipmentId, occurredAt DESC)` | `GET /tracking/{cargoCode}/historico` (cronológica inversa) |
+| `shipment_events(shipmentId, occurredAt DESC)` | `GET /tracking/{codigoCarga}/historico` (cronológica inversa) + **localização atual** (último evento por carga; na listagem via `distinct`, 1 consulta por página) |
 | `shipment_events(status)`, `shipment_events(occurredAt DESC)` | `GET /historico` (admin) com filtro/ordenação |
 | `users(email)` UNIQUE, `users(role, active)`, `users(customerId)` | login futuro, listagem por perfil, vínculo cliente-usuário |
 | `customers(email)` UNIQUE (pré-existente) | resolução do vínculo do usuário CLIENTE |
@@ -186,7 +184,10 @@ Evolução futura, simétrica ao split: job/script com `SWITCH` da partição ma
 
 ## Geolocalização (colunas)
 
-- `origin*Latitude/Longitude`, `destination*Latitude/Longitude`, `currentLatitude/Longitude`: coordenadas (nullable).
+- `origin*Latitude/Longitude`, `destination*Latitude/Longitude`: coordenadas (nullable).
+- A localização de cada ocorrência vive em `shipment_events(locationText, latitude, longitude)`; a
+  localização **atual** da carga é sempre a do último evento (`occurredAt DESC, id DESC`) — a tabela
+  `shipments` não guarda posição (evita reescrita duplicada a cada atualização).
 - `geocodedAt` + `geocodeProvider`: cache da resolução feita via API OSS **Nominatim** (OpenStreetMap). Resolver origem/destino uma única vez na criação da carga; respeitar a policy do Nominatim (máx. 1 req/s, `User-Agent` identificável) e nunca re-geocodificar endereço já resolvido (`geocodedAt != NULL`).
 - A chamada externa ficará atrás de uma port (`GeocodePort`) na aplicação, implementada na infraestrutura — nenhum cliente HTTP no domínio.
 

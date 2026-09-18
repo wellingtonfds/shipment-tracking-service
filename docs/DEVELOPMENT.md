@@ -32,7 +32,7 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 | `npm run lint` | oxlint type-aware |
 | `npm run db:migrate` | `prisma migrate dev` + `prisma generate` |
 | `npm run db:generate` | `prisma generate` (recria `src/generated/prisma`) |
-| `npm run db:seed` | popula o banco com massa fixa/idempotente: customers (15), users (13, por perfil), shipments (12) e shipment_events (histórico por carga) |
+| `npm run db:seed` | popula o banco com massa fixa/idempotente: customers (15), users (14: 2 admin, 6 operadores vinculados, 6 portal CUSTOMER), shipments (12) e shipment_events (histórico por carga) |
 | `npm run db:partition` | idempotente: cria fronteiras mensais vazias de `shipment_events` até cobrir 24 meses futuros (ver docs/DATABASE.md) |
 
 ## Autenticação (dev)

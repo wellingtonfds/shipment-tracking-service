@@ -18,5 +18,6 @@ import { PrismaCustomerRepositoryAdapter } from '../../database/customers/prisma
     { provide: UPDATE_CUSTOMER_USE_CASE, useFactory: (repo) => new UpdateCustomerUseCase(repo), inject: [CUSTOMER_REPOSITORY] },
     { provide: DELETE_CUSTOMER_USE_CASE, useFactory: (repo) => new DeleteCustomerUseCase(repo), inject: [CUSTOMER_REPOSITORY] },
   ],
+  exports: [CUSTOMER_REPOSITORY],
 })
 export class CustomersModule {}

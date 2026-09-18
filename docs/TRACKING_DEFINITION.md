@@ -37,7 +37,7 @@ CREATED ──▶ IN_TRANSIT ──▶ TRANSFERRED ──▶ DELIVERED
 | Perfil (`role`) | Escopo |
 | --- | --- |
 | `ADMINISTRATOR` | Todos os clientes; acesso a `GET /history` global e operações manuais de histórico |
-| `OPERATOR` | Todos os clientes; cria/gere cargas; **sem** acesso a `GET /history` global |
+| `OPERATOR` | Vinculado ao seu cliente (`users.customerId` obrigatório); cria/gere cargas; **sem** acesso a `GET /history` global |
 | `CUSTOMER` | **Exclusivamente as cargas do próprio `Customer`** — leitura (detalhe, histórico da própria carga); sem criação/update/delete |
 
 Regra crítica: a restrição do perfil `CUSTOMER` **deriva do token e nunca de parâmetro
@@ -46,16 +46,16 @@ infra (guard JWT futuro) no use-case; se `role = CUSTOMER`, o use-case **sobresc
 ignora** qualquer `idCliente` recebido e força `where.customerId = principal.customerId`.
 `CUSTOMER` sem vínculo no token → `CUSTOMER_SCOPE_MISSING`.
 
-Vínculo usuário↔cliente: `users.customerId` obrigatório se `role = CUSTOMER`, NULL caso
-contrário (validação de domínio, ver [DATABASE.md](./DATABASE.md)).
+Vínculo usuário↔cliente: `users.customerId` obrigatório se `role ∈ {OPERATOR, CUSTOMER}`,
+NULL apenas `ADMINISTRATOR` (validação de domínio, ver [DATABASE.md](./DATABASE.md)).
 
 ## Regra: usuário responsável obrigatório
 
 Toda carga exige `handledBy` (usuário responsável), **inclusive cargas criadas por
 integração**. Convenções:
 
-- Integrações usam um usuário técnico dedicado (seed: `integration@system.local`, `role = OPERATOR`, sem vínculo a cliente). Evolução prevista: um usuário técnico por sistema externo.
-- `DELETE /users/{id}` com cargas vinculadas é bloqueado pelo FK (`NoAction`): operador sai de circulação via `active = false` (soft-deactivate), preservando a auditoria.
+- Não existe operador sem cliente: o handler de uma carga é o operador do próprio cliente da carga (cargas de integração usam o operador do cliente — sem usuário técnico global).
+- `DELETE /operadores/{id}` com cargas vinculadas é bloqueado pelo FK (`NoAction`): operador sai de circulação via `active = false` (soft-deactivate), preservando a auditoria.
 
 ## Concorrência (atualização de status)
 
@@ -88,8 +88,8 @@ Prefixo global `/api/v1`. Controllers finos: validam → 1 use-case → presente
 
 ### Gestão de usuários — Operadores (implementado)
 
-Rota mantida em português (`/operadores`) por exigência da spec — exceção documentada à
-regra English-only (identificadores de código seguem em inglês: `User`, `UsersController`).
+Rota mantida em português (`/operadores`, `/clientes`) por exigência da spec — exceção documentada à
+regra English-only (identificadores de código seguem em inglês: `User`, `UsersController`, `Customer`).
 
 | Método | Rota | Use-case | Notas |
 | --- | --- | --- | --- |
@@ -98,8 +98,8 @@ regra English-only (identificadores de código seguem em inglês: `User`, `Users
 | POST | `/operadores` | `CreateUserUseCase` | **ADMINISTRATOR**. Valida `role`/`customerId`; email único (`USER_EMAIL_IN_USE`); senha com hash scrypt |
 | PUT | `/operadores/{id}` | `UpdateUserUseCase` | **ADMINISTRATOR**. Parcial; troca de `role` revalida o vínculo; senha re-hash |
 | DELETE | `/operadores/{id}` | `DeleteUserUseCase` | **ADMINISTRATOR**. Soft-delete (`active = false`, 204) — FK `NoAction` impede remoção de quem tem cargas |
-| GET | `/operadores/me` | `GetMyProfileUseCase` | Qualquer perfil autenticado. `id` deriva do token, nunca da requisição |
-| PUT | `/operadores/me` | `UpdateMyProfileUseCase` | Qualquer perfil autenticado. Só `name`/`email`/`password` (campos extras são rejeitados com 400) |
+| GET | `/operadores/me` | `GetMyProfileUseCase` | Qualquer perfil autenticado. `id` deriva do token, nunca da requisição. Retorna `{ user, customer }` com o customer embutido quando o usuário tem `customerId` (perfis `OPERATOR`/`CUSTOMER`) |
+| PUT | `/operadores/me` | `UpdateMyProfileUseCase` | Qualquer perfil autenticado. Só `name`/`email`/`password` (campos extras são rejeitados com 400). Retorna só o usuário, sem customer |
 
 ### Autenticação (implementado)
 

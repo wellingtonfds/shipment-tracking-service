@@ -21,7 +21,7 @@ export class CreateUserDto {
   @MaxLength(128)
   password!: string;
 
-  @ApiProperty({ enum: [...USER_ROLES], example: 'OPERATOR', description: 'Access profile (CUSTOMER requires customerId)' })
+  @ApiProperty({ enum: [...USER_ROLES], example: 'OPERATOR', description: 'Access profile (OPERATOR and CUSTOMER require customerId; ADMINISTRATOR must not be linked)' })
   @IsString()
   @IsIn([...USER_ROLES])
   role!: string;
@@ -31,7 +31,7 @@ export class CreateUserDto {
   @IsBoolean()
   active?: boolean;
 
-  @ApiProperty({ type: Number, nullable: true, example: null, description: 'Linked customer id (required for CUSTOMER, forbidden otherwise)', required: false })
+  @ApiProperty({ type: Number, nullable: true, example: null, description: 'Linked customer id (required for OPERATOR and CUSTOMER, forbidden for ADMINISTRATOR)', required: false })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) => (value === null ? null : Number(value)))
   @IsInt()

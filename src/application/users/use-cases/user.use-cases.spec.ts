@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CreateUserInput } from '../../../domain/users/user.entity.js';
 import { UserCredentials, UserListFilters, UserRepositoryPort } from '../../../domain/users/ports/user-repository.port.js';
+import { CustomerRepositoryPort } from '../../../domain/customers/ports/customer-repository.port.js';
+import type { Customer } from '../../../domain/customers/customer.entity.js';
 import { PasswordHasherPort } from '../ports/password-hasher.port.js';
 import { TokenServicePort } from '../ports/token-service.port.js';
 import { CreateUserUseCase } from './create-user.use-case.js';
@@ -87,7 +89,7 @@ const operatorInput: CreateUserInput = {
   password: 'Senha123!',
   role: 'OPERATOR',
   active: true,
-  customerId: null,
+  customerId: 3,
 };
 
 describe('CreateUserUseCase', () => {
@@ -117,10 +119,18 @@ describe('CreateUserUseCase', () => {
     ).rejects.toMatchObject({ code: 'USER_CUSTOMER_LINK_INVALID' });
   });
 
-  it('forbids customer link for OPERATOR users', async () => {
+  it('requires customer link for OPERATOR users', async () => {
     const useCase = new CreateUserUseCase(fakeRepository(), fakeHasher());
 
-    await expect(useCase.execute({ ...operatorInput, customerId: 5 })).rejects.toMatchObject({ code: 'USER_CUSTOMER_LINK_INVALID' });
+    await expect(useCase.execute({ ...operatorInput, customerId: null })).rejects.toMatchObject({ code: 'USER_CUSTOMER_LINK_INVALID' });
+  });
+
+  it('forbids customer link for ADMINISTRATOR users', async () => {
+    const useCase = new CreateUserUseCase(fakeRepository(), fakeHasher());
+
+    await expect(useCase.execute({ ...operatorInput, email: 'admin2@example.com', role: 'ADMINISTRATOR', customerId: 5 })).rejects.toMatchObject({
+      code: 'USER_CUSTOMER_LINK_INVALID',
+    });
   });
 
   it('rejects short passwords', async () => {
@@ -187,12 +197,17 @@ describe('UpdateUserUseCase', () => {
     const repository = fakeRepository();
     await new CreateUserUseCase(repository, fakeHasher()).execute(operatorInput);
 
-    await expect(new UpdateUserUseCase(repository, fakeHasher()).execute(1, { role: 'CUSTOMER' })).rejects.toMatchObject({
+    // OPERATOR -> CUSTOMER keeps the existing link: valid
+    const asCustomer = await new UpdateUserUseCase(repository, fakeHasher()).execute(1, { role: 'CUSTOMER' });
+    expect(asCustomer).toMatchObject({ role: 'CUSTOMER', customerId: 3 });
+
+    // CUSTOMER -> ADMINISTRATOR requires unlinking first
+    await expect(new UpdateUserUseCase(repository, fakeHasher()).execute(1, { role: 'ADMINISTRATOR' })).rejects.toMatchObject({
       code: 'USER_CUSTOMER_LINK_INVALID',
     });
 
-    const updated = await new UpdateUserUseCase(repository, fakeHasher()).execute(1, { role: 'CUSTOMER', customerId: 7 });
-    expect(updated).toMatchObject({ role: 'CUSTOMER', customerId: 7 });
+    const asAdmin = await new UpdateUserUseCase(repository, fakeHasher()).execute(1, { role: 'ADMINISTRATOR', customerId: null });
+    expect(asAdmin).toMatchObject({ role: 'ADMINISTRATOR', customerId: null });
   });
 });
 
@@ -217,7 +232,7 @@ describe('ListUsersUseCase', () => {
     const repository = fakeRepository();
     const create = new CreateUserUseCase(repository, fakeHasher());
     await create.execute(operatorInput);
-    await create.execute({ ...operatorInput, email: 'admin@example.com', role: 'ADMINISTRATOR' });
+    await create.execute({ ...operatorInput, email: 'admin@example.com', role: 'ADMINISTRATOR', customerId: null });
     await create.execute({ ...operatorInput, email: 'portal@example.com', role: 'CUSTOMER', customerId: 2 });
 
     const operators = await new ListUsersUseCase(repository).execute(1, 10, { role: 'OPERATOR' });
@@ -231,13 +246,66 @@ describe('ListUsersUseCase', () => {
   });
 });
 
+function fakeCustomers(): CustomerRepositoryPort {
+  const customer: Customer = {
+    id: 3,
+    name: 'Maria Silva',
+    email: 'maria.silva@example.com',
+    phone: '(11) 98888-7777',
+    address: 'Av. Paulista, 1000',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+  return {
+    findMany: vi.fn(async () => [customer]),
+    count: vi.fn(async () => 1),
+    findById: vi.fn(async (id: number) => (id === customer.id ? customer : null)),
+    findByEmail: vi.fn(async () => customer),
+    create: vi.fn(async (data) => ({ ...data, id: customer.id, createdAt: new Date(), updatedAt: new Date() })),
+    update: vi.fn(async (id: number, data) => ({ ...customer, ...data, id })),
+    delete: vi.fn(async () => undefined),
+  };
+}
+
 describe('GetMyProfileUseCase', () => {
-  it('returns the own profile', async () => {
+  it('returns the own profile without customer for ADMINISTRATOR (unlinked)', async () => {
+    const repository = fakeRepository();
+    await new CreateUserUseCase(repository, fakeHasher()).execute({
+      ...operatorInput,
+      email: 'admin2@example.com',
+      role: 'ADMINISTRATOR',
+      customerId: null,
+    });
+
+    const result = await new GetMyProfileUseCase(repository, fakeCustomers()).execute(1);
+
+    expect(result.user).toMatchObject({ id: 1, role: 'ADMINISTRATOR' });
+    expect(result.customer).toBeNull();
+  });
+
+  it('embeds the linked customer for OPERATOR users', async () => {
     const repository = fakeRepository();
     await new CreateUserUseCase(repository, fakeHasher()).execute(operatorInput);
 
-    const profile = await new GetMyProfileUseCase(repository).execute(1);
-    expect(profile).toMatchObject({ id: 1 });
+    const result = await new GetMyProfileUseCase(repository, fakeCustomers()).execute(1);
+
+    expect(result.user).toMatchObject({ id: 1, role: 'OPERATOR', customerId: 3 });
+    expect(result.customer).toMatchObject({ id: 3, email: 'maria.silva@example.com' });
+  });
+
+  it('embeds the linked customer for CUSTOMER users', async () => {
+    const repository = fakeRepository();
+    await new CreateUserUseCase(repository, fakeHasher()).execute({
+      ...operatorInput,
+      email: 'portal@example.com',
+      role: 'CUSTOMER',
+      customerId: 3,
+    });
+
+    const result = await new GetMyProfileUseCase(repository, fakeCustomers()).execute(1);
+
+    expect(result.user).toMatchObject({ id: 1, role: 'CUSTOMER', customerId: 3 });
+    expect(result.customer).toMatchObject({ id: 3, email: 'maria.silva@example.com' });
   });
 
   it('denies inactive users', async () => {
@@ -245,7 +313,7 @@ describe('GetMyProfileUseCase', () => {
     await new CreateUserUseCase(repository, fakeHasher()).execute(operatorInput);
     await new DeleteUserUseCase(repository).execute(1);
 
-    await expect(new GetMyProfileUseCase(repository).execute(1)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(new GetMyProfileUseCase(repository, fakeCustomers()).execute(1)).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 });
 
@@ -256,7 +324,7 @@ describe('UpdateMyProfileUseCase', () => {
 
     const updated = await new UpdateMyProfileUseCase(repository, fakeHasher()).execute(1, { name: 'New Name', email: 'new@example.com' });
 
-    expect(updated).toMatchObject({ name: 'New Name', email: 'new@example.com', role: 'OPERATOR', active: true, customerId: null });
+    expect(updated).toMatchObject({ name: 'New Name', email: 'new@example.com', role: 'OPERATOR', active: true, customerId: 3 });
   });
 
   it('throws USER_EMAIL_IN_USE when email belongs to another user', async () => {

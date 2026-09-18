@@ -22,6 +22,9 @@ import {
   UPDATE_USER_USE_CASE,
   USER_REPOSITORY,
 } from '../../../application/users/user.tokens.js';
+import type { CustomerRepositoryPort } from '../../../domain/customers/ports/customer-repository.port.js';
+import { CUSTOMER_REPOSITORY } from '../../../application/customers/customer.tokens.js';
+import { CustomersModule } from '../customers/customers.module.js';
 import { PrismaUserRepositoryAdapter } from '../../database/users/prisma-user-repository.adapter.js';
 import { JwtTokenService } from '../../security/jwt-token.service.js';
 import { ScryptPasswordHasher } from '../../security/scrypt-password-hasher.js';
@@ -30,6 +33,7 @@ import { UsersController } from './users.controller.js';
 
 @Module({
   imports: [
+    CustomersModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -52,7 +56,11 @@ import { UsersController } from './users.controller.js';
     { provide: CREATE_USER_USE_CASE, useFactory: (repo, hasher) => new CreateUserUseCase(repo, hasher), inject: [USER_REPOSITORY, PASSWORD_HASHER] },
     { provide: UPDATE_USER_USE_CASE, useFactory: (repo, hasher) => new UpdateUserUseCase(repo, hasher), inject: [USER_REPOSITORY, PASSWORD_HASHER] },
     { provide: DELETE_USER_USE_CASE, useFactory: (repo) => new DeleteUserUseCase(repo), inject: [USER_REPOSITORY] },
-    { provide: GET_MY_PROFILE_USE_CASE, useFactory: (repo) => new GetMyProfileUseCase(repo), inject: [USER_REPOSITORY] },
+    {
+      provide: GET_MY_PROFILE_USE_CASE,
+      useFactory: (repo, customers: CustomerRepositoryPort) => new GetMyProfileUseCase(repo, customers),
+      inject: [USER_REPOSITORY, CUSTOMER_REPOSITORY],
+    },
     { provide: UPDATE_MY_PROFILE_USE_CASE, useFactory: (repo, hasher) => new UpdateMyProfileUseCase(repo, hasher), inject: [USER_REPOSITORY, PASSWORD_HASHER] },
   ],
   exports: [TOKEN_SERVICE],

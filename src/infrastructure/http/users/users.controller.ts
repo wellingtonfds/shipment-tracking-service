@@ -25,6 +25,7 @@ import { UpdateUserDto } from './dtos/update-user.dto.js';
 import { UpdateMyProfileDto } from './dtos/update-my-profile.dto.js';
 import { ListUsersQueryDto } from './dtos/list-users-query.dto.js';
 import { ListUsersPresenter, UserPresenter } from './user.presenter.js';
+import { MyProfilePresenter } from './my-profile.presenter.js';
 import { ErrorPresenter } from '../shared/presenters/error.presenter.js';
 
 // Route kept in Portuguese (/operadores) per the tracking spec — code identifiers stay
@@ -57,11 +58,14 @@ export class UsersController {
   // Declared before ':id' so the static path is matched first.
   @Get('me')
   @Roles(...USER_ROLES)
-  @ApiOperation({ summary: 'Return the authenticated operator profile', description: 'Any authenticated profile can read its own data.' })
-  @ApiResponse({ status: 200, type: UserPresenter, description: 'Authenticated profile' })
-  async getMe(@CurrentUser() user: AuthPayload): Promise<UserPresenter> {
+  @ApiOperation({
+    summary: 'Return the authenticated operator profile',
+    description: 'Any authenticated profile can read its own data. Users linked to a customer (CUSTOMER profile) also receive the customer embedded.',
+  })
+  @ApiResponse({ status: 200, type: MyProfilePresenter, description: 'Authenticated profile (with linked customer when applicable)' })
+  async getMe(@CurrentUser() user: AuthPayload): Promise<MyProfilePresenter> {
     const profile = await this.getMyProfile.execute(user.userId);
-    return UserPresenter.fromEntity(profile);
+    return MyProfilePresenter.fromResult(profile);
   }
 
   @Put('me')
@@ -98,7 +102,7 @@ export class UsersController {
   @Post()
   @ApiOperation({
     summary: 'Create a new operator or user',
-    description: 'Admin only. CUSTOMER users require customerId; ADMINISTRATOR/OPERATOR must not be linked to a customer.',
+    description: 'Admin only. OPERATOR and CUSTOMER users require customerId; ADMINISTRATOR must not be linked.',
   })
   @ApiResponse({ status: 201, type: UserPresenter, description: 'User created' })
   @ApiResponse({ status: 409, type: ErrorPresenter, description: 'Email already registered' })

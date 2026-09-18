@@ -181,10 +181,10 @@ export function validateUserUpdate(current: User, input: UpdateUserInput): Norma
 }
 
 export function assertUserCustomerLink(role: UserRole, customerId: number | null): void {
-  if (role === 'CUSTOMER' && customerId === null) {
-    throw new UserCustomerLinkInvalidError('CUSTOMER users must be linked to a customer');
+  if (role === 'ADMINISTRATOR' && customerId !== null) {
+    throw new UserCustomerLinkInvalidError('ADMINISTRATOR users must not be linked to a customer');
   }
-  if (role !== 'CUSTOMER' && customerId !== null) {
-    throw new UserCustomerLinkInvalidError('ADMINISTRATOR and OPERATOR users must not be linked to a customer');
+  if ((role === 'OPERATOR' || role === 'CUSTOMER') && customerId === null) {
+    throw new UserCustomerLinkInvalidError('OPERATOR and CUSTOMER users must be linked to a customer');
   }
 }

@@ -36,6 +36,7 @@ describe('Operadores (e2e)', () => {
   let adminToken = '';
   let operatorToken = '';
   let operatorId = 0;
+  let operatorCustomerId = 0;
 
   it('POST /api/v1/auth/login rejects wrong credentials (401)', async () => {
     const response = await request(server()).post('/api/v1/auth/login').send({ email: 'ghost@example.com', password: 'WrongPass9' }).expect(401);
@@ -58,13 +59,20 @@ describe('Operadores (e2e)', () => {
   });
 
   it('POST /api/v1/operadores creates an operator (201, admin only)', async () => {
+    const customer = await request(server())
+      .post('/api/v1/clientes')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Operator Customer', email: `e2e-opcust-${stamp}@example.com`, phone: '(11) 90000-0000', address: 'Test Street, 9' })
+      .expect(201);
+    operatorCustomerId = customer.body.id;
+
     const response = await request(server())
       .post('/api/v1/operadores')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'E2E Operator', email: operatorEmail, password: 'Senha123!', role: 'OPERATOR' })
+      .send({ name: 'E2E Operator', email: operatorEmail, password: 'Senha123!', role: 'OPERATOR', customerId: operatorCustomerId })
       .expect(201);
 
-    expect(response.body).toMatchObject({ name: 'E2E Operator', email: operatorEmail, role: 'OPERATOR', active: true, customerId: null });
+    expect(response.body).toMatchObject({ name: 'E2E Operator', email: operatorEmail, role: 'OPERATOR', active: true, customerId: operatorCustomerId });
     expect(response.body).not.toHaveProperty('passwordHash');
     operatorId = response.body.id;
   });
@@ -73,10 +81,20 @@ describe('Operadores (e2e)', () => {
     const response = await request(server())
       .post('/api/v1/operadores')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Duplicate', email: operatorEmail, password: 'Senha123!', role: 'OPERATOR' })
+      .send({ name: 'Duplicate', email: operatorEmail, password: 'Senha123!', role: 'OPERATOR', customerId: operatorCustomerId })
       .expect(409);
 
     expect(response.body.code).toBe('USER_EMAIL_IN_USE');
+  });
+
+  it('POST /api/v1/operadores rejects OPERATOR without customer link (422)', async () => {
+    const response = await request(server())
+      .post('/api/v1/operadores')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'No Link', email: `e2e-nolink-${stamp}@example.com`, password: 'Senha123!', role: 'OPERATOR' })
+      .expect(422);
+
+    expect(response.body.code).toBe('USER_CUSTOMER_LINK_INVALID');
   });
 
   it('POST /api/v1/operadores rejects CUSTOMER without customer link (422)', async () => {
@@ -111,6 +129,20 @@ describe('Operadores (e2e)', () => {
 
     const me = await request(server()).get('/api/v1/operadores/me').set('Authorization', `Bearer ${operatorToken}`).expect(200);
     expect(me.body).toMatchObject({ id: operatorId, email: operatorEmail });
+    expect(me.body.customer).toMatchObject({ id: operatorCustomerId });
+    expect(me.body).not.toHaveProperty('passwordHash');
+  });
+
+  it('GET /api/v1/operadores/me embeds the linked customer for CUSTOMER profile (200)', async () => {
+    const login = await request(server())
+      .post('/api/v1/auth/login')
+      .send({ email: 'portal.maria@example.com', password: 'Senha123!' })
+      .expect(200);
+
+    const me = await request(server()).get('/api/v1/operadores/me').set('Authorization', `Bearer ${login.body.token}`).expect(200);
+
+    expect(me.body).toMatchObject({ email: 'portal.maria@example.com', role: 'CUSTOMER' });
+    expect(me.body.customer).toMatchObject({ email: 'maria.silva@example.com', name: 'Maria Silva' });
     expect(me.body).not.toHaveProperty('passwordHash');
   });
 

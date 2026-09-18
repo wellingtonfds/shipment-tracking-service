@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, ParseIntPipe, Post, Put, Query } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CREATE_CUSTOMER_USE_CASE, DELETE_CUSTOMER_USE_CASE, GET_CUSTOMER_USE_CASE, LIST_CUSTOMERS_USE_CASE, UPDATE_CUSTOMER_USE_CASE } from '../../../application/customers/customer.tokens.js';
 import { CreateCustomerUseCase } from '../../../application/customers/use-cases/create-customer.use-case.js';
 import { GetCustomerUseCase } from '../../../application/customers/use-cases/get-customer.use-case.js';
@@ -11,12 +11,15 @@ import { UpdateCustomerDto } from './dtos/update-customer.dto.js';
 import { ListCustomersQueryDto } from './dtos/list-customers-query.dto.js';
 import { CustomerPresenter, ListCustomersPresenter } from './customer.presenter.js';
 import { ErrorPresenter } from '../shared/presenters/error.presenter.js';
-import { Public } from '../shared/guards/public.decorator.js';
+import { Roles } from '../shared/guards/roles.decorator.js';
 
 @ApiTags('Customers')
+@ApiBearerAuth()
 @ApiResponse({ status: 400, type: ErrorPresenter, description: 'Invalid input (non-numeric id, invalid body)' })
-@Public()
-@Controller('customers')
+@ApiResponse({ status: 401, type: ErrorPresenter, description: 'Missing, invalid or expired token' })
+@ApiResponse({ status: 403, type: ErrorPresenter, description: 'Authenticated user lacks the ADMINISTRATOR profile' })
+@Roles('ADMINISTRATOR')
+@Controller('clientes')
 export class CustomersController {
   constructor(
     @Inject(LIST_CUSTOMERS_USE_CASE)

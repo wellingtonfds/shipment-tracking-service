@@ -40,7 +40,7 @@ model Customer {
 // Usuário do sistema (perfil de acesso). Substitui a antiga noção de "Operator":
 // um único model User com role — ADMINISTRATOR | OPERATOR | CUSTOMER.
 // Regra de domínio (validada fora do schema, Prisma não tem FK condicional):
-// role = CUSTOMER exige customerId; role = ADMINISTRATOR/OPERATOR exige customerId NULL.
+// role ∈ {OPERATOR, CUSTOMER} exige customerId; role = ADMINISTRATOR exige customerId NULL.
 model User {
   id           Int      @id @default(autoincrement())
   name         String   @db.NVarChar(120)

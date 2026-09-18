@@ -43,13 +43,13 @@ const users = [
   // Administrators
   { name: 'Admin Central', email: 'admin@logistica.com', role: 'ADMINISTRATOR', active: true, customerEmail: null },
   { name: 'Admin Suporte', email: 'admin.suporte@logistica.com', role: 'ADMINISTRATOR', active: true, customerEmail: null },
-  // Operators (system staff)
-  { name: 'Sérgio Nogueira', email: 'sergio.nogueira@logistica.com', role: 'OPERATOR', active: true, customerEmail: null },
-  { name: 'Tânia Mendes', email: 'tania.mendes@logistica.com', role: 'OPERATOR', active: true, customerEmail: null },
-  { name: 'Vitor Hugo Ramos', email: 'vitor.ramos@logistica.com', role: 'OPERATOR', active: true, customerEmail: null },
-  { name: 'Elaine Prado', email: 'elaine.prado@logistica.com', role: 'OPERATOR', active: true, customerEmail: null },
-  // Technical user for integrations (every shipment requires a handler, even automated ones)
-  { name: 'System Integration', email: 'integration@system.local', role: 'OPERATOR', active: true, customerEmail: null },
+  // Operators (customer staff: every OPERATOR is linked to a customer)
+  { name: 'Sérgio Nogueira', email: 'sergio.nogueira@logistica.com', role: 'OPERATOR', active: true, customerEmail: 'maria.silva@example.com' },
+  { name: 'Tânia Mendes', email: 'tania.mendes@logistica.com', role: 'OPERATOR', active: true, customerEmail: 'joao.souza@example.com' },
+  { name: 'Vitor Hugo Ramos', email: 'vitor.ramos@logistica.com', role: 'OPERATOR', active: true, customerEmail: 'ana.oliveira@example.com' },
+  { name: 'Elaine Prado', email: 'elaine.prado@logistica.com', role: 'OPERATOR', active: true, customerEmail: 'carlos.pereira@example.com' },
+  { name: 'Rita Dias', email: 'rita.dias@logistica.com', role: 'OPERATOR', active: true, customerEmail: 'fernanda.costa@example.com' },
+  { name: 'Otávio Lopes', email: 'otavio.lopes@logistica.com', role: 'OPERATOR', active: true, customerEmail: 'pedro.almeida@example.com' },
   // Customer-linked users (scoping: sees only their own customer's shipments)
   { name: 'Portal Maria Silva', email: 'portal.maria@example.com', role: 'CUSTOMER', active: true, customerEmail: 'maria.silva@example.com' },
   { name: 'Portal João Souza', email: 'portal.joao@example.com', role: 'CUSTOMER', active: true, customerEmail: 'joao.souza@example.com' },
@@ -78,14 +78,14 @@ const shipments: ShipmentSeed[] = [
   { cargoCode: 'BR2026-0002', status: 'IN_TRANSIT', origin: ['Curitiba', 'Brasil', -25.4284, -49.2733], destination: ['São Paulo', 'Brasil', -23.5505, -46.6333], current: ['Campinas, SP', -22.9056, -47.0608], departureDays: -3, estimatedDays: 4, deliveredDays: null, customerEmail: 'joao.souza@example.com', handlerEmail: 'tania.mendes@logistica.com' },
   { cargoCode: 'BR2026-0003', status: 'CREATED', origin: ['Porto Alegre', 'Brasil', -30.0346, -51.2177], destination: ['Florianópolis', 'Brasil', -27.5954, -48.548], current: ['Porto Alegre, RS', -30.0346, -51.2177], departureDays: 2, estimatedDays: 10, deliveredDays: null, customerEmail: 'ana.oliveira@example.com', handlerEmail: 'vitor.ramos@logistica.com' },
   { cargoCode: 'BR2026-0004', status: 'TRANSFERRED', origin: ['Salvador', 'Brasil', -12.9777, -38.5016], destination: ['Recife', 'Brasil', -8.0476, -34.877], current: ['Maceió, AL', -9.6658, -35.7353], departureDays: -6, estimatedDays: 8, deliveredDays: null, customerEmail: 'carlos.pereira@example.com', handlerEmail: 'elaine.prado@logistica.com' },
-  { cargoCode: 'BR2026-0005', status: 'DELIVERED', origin: ['Belo Horizonte', 'Brasil', -19.9167, -43.9345], destination: ['Brasília', 'Brasil', -15.7939, -47.8828], current: ['Brasília, DF', -15.7939, -47.8828], departureDays: -15, estimatedDays: 5, deliveredDays: 4, customerEmail: 'fernanda.costa@example.com', handlerEmail: 'sergio.nogueira@logistica.com' },
-  { cargoCode: 'BR2026-0006', status: 'IN_TRANSIT', origin: ['Manaus', 'Brasil', -3.119, -60.0217], destination: ['Belém', 'Brasil', -1.4558, -48.4902], current: ['Santarém, PA', -2.4431, -54.7083], departureDays: -4, estimatedDays: 9, deliveredDays: null, customerEmail: 'pedro.almeida@example.com', handlerEmail: 'integration@system.local' },
-  { cargoCode: 'BR2026-0007', status: 'CREATED', origin: ['Goiânia', 'Brasil', -16.6869, -49.2648], destination: ['Campinas', 'Brasil', -22.9056, -47.0608], current: ['Goiânia, GO', -16.6869, -49.2648], departureDays: 1, estimatedDays: 7, deliveredDays: null, customerEmail: 'maria.silva@example.com', handlerEmail: 'integration@system.local' },
+  { cargoCode: 'BR2026-0005', status: 'DELIVERED', origin: ['Belo Horizonte', 'Brasil', -19.9167, -43.9345], destination: ['Brasília', 'Brasil', -15.7939, -47.8828], current: ['Brasília, DF', -15.7939, -47.8828], departureDays: -15, estimatedDays: 5, deliveredDays: 4, customerEmail: 'fernanda.costa@example.com', handlerEmail: 'rita.dias@logistica.com' },
+  { cargoCode: 'BR2026-0006', status: 'IN_TRANSIT', origin: ['Manaus', 'Brasil', -3.119, -60.0217], destination: ['Belém', 'Brasil', -1.4558, -48.4902], current: ['Santarém, PA', -2.4431, -54.7083], departureDays: -4, estimatedDays: 9, deliveredDays: null, customerEmail: 'pedro.almeida@example.com', handlerEmail: 'otavio.lopes@logistica.com' },
+  { cargoCode: 'BR2026-0007', status: 'CREATED', origin: ['Goiânia', 'Brasil', -16.6869, -49.2648], destination: ['Campinas', 'Brasil', -22.9056, -47.0608], current: ['Goiânia, GO', -16.6869, -49.2648], departureDays: 1, estimatedDays: 7, deliveredDays: null, customerEmail: 'maria.silva@example.com', handlerEmail: 'sergio.nogueira@logistica.com' },
   { cargoCode: 'BR2026-0008', status: 'TRANSFERRED', origin: ['Fortaleza', 'Brasil', -3.7319, -38.5267], destination: ['Natal', 'Brasil', -5.7945, -35.212], current: ['Teresina, PI', -5.0892, -42.8019], departureDays: -8, estimatedDays: 12, deliveredDays: null, customerEmail: 'joao.souza@example.com', handlerEmail: 'tania.mendes@logistica.com' },
   { cargoCode: 'INT2026-0009', status: 'IN_TRANSIT', origin: ['Santos', 'Brasil', -23.9608, -46.3336], destination: ['Rotterdam', 'Países Baixos', 51.9244, 4.4777], current: ['Atlantic Ocean (vessel MSC Aurora)', 15.0, -30.0], departureDays: -10, estimatedDays: 25, deliveredDays: null, customerEmail: 'ana.oliveira@example.com', handlerEmail: 'vitor.ramos@logistica.com' },
-  { cargoCode: 'INT2026-0010', status: 'DELIVERED', origin: ['Shanghai', 'China', 31.2304, 121.4737], destination: ['Santos', 'Brasil', -23.9608, -46.3336], current: ['Santos, SP', -23.9608, -46.3336], departureDays: -45, estimatedDays: 40, deliveredDays: 42, customerEmail: 'carlos.pereira@example.com', handlerEmail: 'integration@system.local' },
-  { cargoCode: 'BR2026-0011', status: 'IN_TRANSIT', origin: ['Vitória', 'Brasil', -20.3155, -40.3128], destination: ['Salvador', 'Brasil', -12.9777, -38.5016], current: ['Porto Seguro, BA', -16.4497, -39.0647], departureDays: -2, estimatedDays: 6, deliveredDays: null, customerEmail: 'fernanda.costa@example.com', handlerEmail: 'elaine.prado@logistica.com' },
-  { cargoCode: 'BR2026-0012', status: 'CREATED', origin: ['Cuiabá', 'Brasil', -15.6014, -56.0979], destination: ['Campo Grande', 'Brasil', -20.4697, -54.6201], current: ['Cuiabá, MT', -15.6014, -56.0979], departureDays: 3, estimatedDays: 9, deliveredDays: null, customerEmail: 'pedro.almeida@example.com', handlerEmail: 'sergio.nogueira@logistica.com' },
+  { cargoCode: 'INT2026-0010', status: 'DELIVERED', origin: ['Shanghai', 'China', 31.2304, 121.4737], destination: ['Santos', 'Brasil', -23.9608, -46.3336], current: ['Santos, SP', -23.9608, -46.3336], departureDays: -45, estimatedDays: 40, deliveredDays: 42, customerEmail: 'carlos.pereira@example.com', handlerEmail: 'elaine.prado@logistica.com' },
+  { cargoCode: 'BR2026-0011', status: 'IN_TRANSIT', origin: ['Vitória', 'Brasil', -20.3155, -40.3128], destination: ['Salvador', 'Brasil', -12.9777, -38.5016], current: ['Porto Seguro, BA', -16.4497, -39.0647], departureDays: -2, estimatedDays: 6, deliveredDays: null, customerEmail: 'fernanda.costa@example.com', handlerEmail: 'rita.dias@logistica.com' },
+  { cargoCode: 'BR2026-0012', status: 'CREATED', origin: ['Cuiabá', 'Brasil', -15.6014, -56.0979], destination: ['Campo Grande', 'Brasil', -20.4697, -54.6201], current: ['Cuiabá, MT', -15.6014, -56.0979], departureDays: 3, estimatedDays: 9, deliveredDays: null, customerEmail: 'pedro.almeida@example.com', handlerEmail: 'otavio.lopes@logistica.com' },
 ];
 
 // Optional intermediate stops (city, lat, long) used as event locations between origin and destination.
@@ -165,8 +165,11 @@ async function main(): Promise<void> {
     const passwordHash = await hashPassword(SEED_DEFAULT_PASSWORD);
     for (const user of users) {
       const customerId = user.customerEmail ? (customerByEmail.get(user.customerEmail)?.id ?? null) : null;
-      if (user.role === 'CUSTOMER' && customerId === null) {
-        throw new Error(`Seed error: customer user ${user.email} references unknown customer ${user.customerEmail}`);
+      if ((user.role === 'OPERATOR' || user.role === 'CUSTOMER') && customerId === null) {
+        throw new Error(`Seed error: ${user.role} user ${user.email} references unknown customer ${user.customerEmail}`);
+      }
+      if (user.role === 'ADMINISTRATOR' && customerId !== null) {
+        throw new Error(`Seed error: ADMINISTRATOR user ${user.email} must not be linked to a customer`);
       }
       const data = { name: user.name, role: user.role, active: user.active, customerId };
       // passwordHash is set only on create: re-seeding never resets an existing password
@@ -213,7 +216,8 @@ async function main(): Promise<void> {
       };
       const shipment = await prisma.shipment.upsert({
         where: { cargoCode: s.cargoCode },
-        update: {},
+        // Sync handler on re-seed: every shipment is handled by an operator of its own customer
+        update: { handledById: handler.id },
         create: { cargoCode: s.cargoCode, ...shipmentData },
       });
 
@@ -227,6 +231,19 @@ async function main(): Promise<void> {
       }
     }
     console.log(`Seed: ${shipments.length} shipments (upsert by cargoCode), ${eventsCreated} shipment events (inserted only for new shipments).`);
+
+    // Cleanup of the removed technical user: every shipment is now handled by an operator
+    // of its own customer, so integration@system.local must hold no shipments (FK NoAction).
+    // Event authorship (createdById) is preserved as NULL via SetNull.
+    const integration = await prisma.user.findUnique({ where: { email: 'integration@system.local' }, select: { id: true } });
+    if (integration) {
+      const handled = await prisma.shipment.count({ where: { handledById: integration.id } });
+      if (handled > 0) {
+        throw new Error(`Seed error: integration@system.local still handles ${handled} shipment(s); reassign handlers before removal`);
+      }
+      await prisma.user.delete({ where: { id: integration.id } });
+      console.log('Seed: removed legacy integration@system.local user.');
+    }
   } finally {
     await prisma.$disconnect();
   }

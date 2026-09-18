@@ -26,7 +26,7 @@ Todo DTO de request/response deve ter:
   "statusCode": 422,
   "code": "MY_ERROR_CODE",
   "message": "Descrição legível",
-  "path": "/api/v1/customers/99",
+  "path": "/api/v1/clientes/99",
   "timestamp": "2026-09-16T20:30:00.000Z"
 }
 ```

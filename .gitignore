@@ -22,6 +22,7 @@ tsconfig.build.tsbuildinfo
 
 # Testes
 coverage/
+reports/
 
 # Grafo de conhecimento local (graphify)
 graphify-out/

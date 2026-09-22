@@ -28,6 +28,7 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 | `npm run build` | compila para `dist/` |
 | `npm run start:prod` | roda `dist/main.js` |
 | `npm test` | testes unit + arquitetura |
+| `npm run test:ci` | testes unit + arquitetura com relatórios JUnit e cobertura |
 | `npm run test:e2e` | testes e2e (precisa do banco no ar) |
 | `npm run lint` | oxlint type-aware |
 | `npm run db:migrate` | `prisma migrate dev` + `prisma generate` |
@@ -66,3 +67,13 @@ npm test   # test/architecture.spec.ts falha se domain/application importarem fr
 4. Controller + presenter + Swagger.
 5. Teste e2e.
 6. `npm run lint && npm test && npm run build` antes do PR.
+
+## Integração contínua
+
+O workflow `.github/workflows/ci.yml` roda em pull requests e pushes para `main`:
+
+- lint com oxlint type-aware;
+- testes unitários e de arquitetura com relatório JUnit e cobertura;
+- build da imagem Docker após lint e testes passarem.
+
+Os relatórios JUnit e de cobertura ficam disponíveis como artefatos da execução por 14 dias. A imagem é apenas validada no CI e não é publicada em registry.

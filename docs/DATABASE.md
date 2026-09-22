@@ -6,18 +6,18 @@ tabelas, relacionamentos, índices e convenções. A definição de negócio do 
 
 ## Glossário PT→EN
 
-| PT (spec) | EN (código/banco) |
-| --- | --- |
-| Cliente | `Customer` (tabela `customers`) |
-| Operador / Usuário do sistema | `User` (tabela `users`) |
-| Perfis: ADMINISTRADOR, OPERADOR, CLIENTE | `role`: `ADMINISTRATOR`, `OPERATOR`, `CUSTOMER` |
-| Viagem / Carga | `Shipment` (tabela `shipments`) |
-| Código de carga | `cargoCode` |
-| Histórico / Movimentação | `ShipmentEvent` (tabela `shipment_events`) |
-| Status: Iniciada, Em Trânsito, Transbordo, Entregue | `CREATED`, `IN_TRANSIT`, `TRANSFERRED`, `DELIVERED` |
-| Local de origem / destino | `origin*` / `destination*` (colunas de `shipments`) |
-| Local atual da carga | localização do **último `ShipmentEvent`** (`occurredAt DESC, id DESC`) — nunca persistida em `shipments` |
-| Usuário responsável pela carga | `handledBy` (FK `handledById`) |
+| PT (spec)                                           | EN (código/banco)                                                                                        |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Cliente                                             | `Customer` (tabela `customers`)                                                                          |
+| Operador / Usuário do sistema                       | `User` (tabela `users`)                                                                                  |
+| Perfis: ADMINISTRADOR, OPERADOR, CLIENTE            | `role`: `ADMINISTRATOR`, `OPERATOR`, `CUSTOMER`                                                          |
+| Viagem / Carga                                      | `Shipment` (tabela `shipments`)                                                                          |
+| Código de carga                                     | `cargoCode`                                                                                              |
+| Histórico / Movimentação                            | `ShipmentEvent` (tabela `shipment_events`)                                                               |
+| Status: Iniciada, Em Trânsito, Transbordo, Entregue | `CREATED`, `IN_TRANSIT`, `TRANSFERRED`, `DELIVERED`                                                      |
+| Local de origem / destino                           | `origin*` / `destination*` (colunas de `shipments`)                                                      |
+| Local atual da carga                                | localização do **último `ShipmentEvent`** (`occurredAt DESC, id DESC`) — nunca persistida em `shipments` |
+| Usuário responsável pela carga                      | `handledBy` (FK `handledById`)                                                                           |
 
 ## Modelo de dados (ER)
 
@@ -87,46 +87,46 @@ erDiagram
 
 ## Relacionamentos
 
-| Relação | Cardinalidade | FK | `onDelete` / `onUpdate` | Regra |
-| --- | --- | --- | --- | --- |
-| `Customer → Shipment` | 1:N | `shipments.customerId NOT NULL` | `NoAction` / `NoAction` | Cliente com carga não pode ser apagado |
-| `Customer → User` | 1:N | `users.customerId NULL` | `NoAction` / `NoAction` | Obrigatório se `role ∈ {OPERATOR, CUSTOMER}`, NULL apenas `ADMINISTRATOR`; validado no domínio (Prisma não tem FK condicional) |
-| `User → Shipment` | 1:N | `shipments.handledById NOT NULL` | `NoAction` / `NoAction` | **Toda carga exige usuário responsável**: o handler é o operador do próprio cliente da carga (cargas de integração usam o operador do cliente). Remoção de usuário com cargas é bloqueada pelo FK — desativar via `active = false` |
-| `User → ShipmentEvent` | 1:N | `shipment_events.createdById NULL` | `SetNull` / `NoAction` | Autoria opcional preservada mesmo se o usuário for removido |
-| `Shipment → ShipmentEvent` | 1:N | `shipment_events.shipmentId NOT NULL` | `Cascade` / `NoAction` | Apagar a carga apaga seu histórico |
+| Relação                    | Cardinalidade | FK                                    | `onDelete` / `onUpdate` | Regra                                                                                                                                                                                                                              |
+| -------------------------- | ------------- | ------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Customer → Shipment`      | 1:N           | `shipments.customerId NOT NULL`       | `NoAction` / `NoAction` | Cliente com carga não pode ser apagado                                                                                                                                                                                             |
+| `Customer → User`          | 1:N           | `users.customerId NULL`               | `NoAction` / `NoAction` | Obrigatório se `role ∈ {OPERATOR, CUSTOMER}`, NULL apenas `ADMINISTRATOR`; validado no domínio (Prisma não tem FK condicional)                                                                                                     |
+| `User → Shipment`          | 1:N           | `shipments.handledById NOT NULL`      | `NoAction` / `NoAction` | **Toda carga exige usuário responsável**: o handler é o operador do próprio cliente da carga (cargas de integração usam o operador do cliente). Remoção de usuário com cargas é bloqueada pelo FK — desativar via `active = false` |
+| `User → ShipmentEvent`     | 1:N           | `shipment_events.createdById NULL`    | `SetNull` / `NoAction`  | Autoria opcional preservada mesmo se o usuário for removido                                                                                                                                                                        |
+| `Shipment → ShipmentEvent` | 1:N           | `shipment_events.shipmentId NOT NULL` | `Cascade` / `NoAction`  | Apagar a carga apaga seu histórico                                                                                                                                                                                                 |
 
 > `NoAction` é o equivalente MSSQL de "bloquear a operação no banco" (o Prisma/MSSQL
 > não expõe `Restrict`). O comportamento é o desejado: FK violada → erro no delete/update.
 
 ## Índices e justificativa (consultas da spec §2.2/§3)
 
-| Índice | Consultas atendidas |
-| --- | --- |
-| `shipments.cargoCode` UNIQUE | `GET/PUT/DELETE /tracking/{cargoCode}`, `GET .../historico`, `POST /historico/{cargoCode}` — lookup por chave natural + unicidade |
-| `shipments(status)` | `GET /tracking?status=`, `GET /tracking/status/{status}` |
-| `shipments(customerId, status)` | `GET /tracking?idCliente=&status=` (filtros combináveis) + scoping do perfil `CUSTOMER` |
-| `shipments(handledById)` | `GET /tracking?idOperador=` |
-| `shipments(departureDate, estimatedDeliveryDate)` | filtro por período de embarque/entrega |
-| `shipments(status, estimatedDeliveryDate)` | listagem paginada/ordenada com teto de `limit` |
-| `shipment_events(shipmentId, occurredAt DESC)` | `GET /tracking/{codigoCarga}/historico` (cronológica inversa) + **localização atual** (último evento por carga; na listagem via `distinct`, 1 consulta por página) |
-| `shipment_events(status)`, `shipment_events(occurredAt DESC)` | `GET /historico` (admin) com filtro/ordenação |
-| `users(email)` UNIQUE, `users(role, active)`, `users(customerId)` | login futuro, listagem por perfil, vínculo cliente-usuário |
-| `customers(email)` UNIQUE (pré-existente) | resolução do vínculo do usuário CLIENTE |
+| Índice                                                            | Consultas atendidas                                                                                                                                                |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `shipments.cargoCode` UNIQUE                                      | `GET/PUT/DELETE /tracking/{cargoCode}`, `GET .../historico`, `POST /historico/{cargoCode}` — lookup por chave natural + unicidade                                  |
+| `shipments(status)`                                               | `GET /tracking?status=`, `GET /tracking/status/{status}`                                                                                                           |
+| `shipments(customerId, status)`                                   | `GET /tracking?idCliente=&status=` (filtros combináveis) + scoping do perfil `CUSTOMER`                                                                            |
+| `shipments(handledById)`                                          | `GET /tracking?idOperador=`                                                                                                                                        |
+| `shipments(departureDate, estimatedDeliveryDate)`                 | filtro por período de embarque/entrega                                                                                                                             |
+| `shipments(status, estimatedDeliveryDate)`                        | listagem paginada/ordenada com teto de `limit`                                                                                                                     |
+| `shipment_events(shipmentId, occurredAt DESC)`                    | `GET /tracking/{codigoCarga}/historico` (cronológica inversa) + **localização atual** (último evento por carga; na listagem via `distinct`, 1 consulta por página) |
+| `shipment_events(status)`, `shipment_events(occurredAt DESC)`     | `GET /historico` (admin) com filtro/ordenação                                                                                                                      |
+| `users(email)` UNIQUE, `users(role, active)`, `users(customerId)` | login futuro, listagem por perfil, vínculo cliente-usuário                                                                                                         |
+| `customers(email)` UNIQUE (pré-existente)                         | resolução do vínculo do usuário CLIENTE                                                                                                                            |
 
 ## Volumetria de referência e limites
 
 Números para dimensionar decisões (a solução **não** precisa sustentá-los na prática,
 mas as decisões devem ser coerentes e os limites declarados):
 
-| Dimensão | Volume | Derivação |
-| --- | --- | --- |
-| Clientes ativos | 1.200 | trivial |
-| Cargas ativas simultâneas | 45.000 | ~1,5–3M de cargas em 5 anos (ciclo médio ~15–30 dias) |
-| Atualizações de status | 120.000/dia (06h–20h ⇒ ~2,4 writes/s de pico) | **~150–220M `shipment_events` em 5 anos** ← tabela crítica |
-| Portal do cliente | 150–200 rps de pico, leitura predominante | atendido por `cargoCode` único + `(customerId, status)` |
-| Retenção do histórico | 5 anos, consultável | particionamento mensal + `MERGE`/`SWITCH` para arquivo (futuro) |
-| Disponibilidade | 99,5% em horário comercial | decisão de infra (AG/replica), não de schema |
-| Sensibilidade | clientes concorrentes; vazamento é incidente crítico (LGPD) | scoping por token (`User.customerId`); posse no lookup por `cargoCode` |
+| Dimensão                  | Volume                                                      | Derivação                                                              |
+| ------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Clientes ativos           | 1.200                                                       | trivial                                                                |
+| Cargas ativas simultâneas | 45.000                                                      | ~1,5–3M de cargas em 5 anos (ciclo médio ~15–30 dias)                  |
+| Atualizações de status    | 120.000/dia (06h–20h ⇒ ~2,4 writes/s de pico)               | **~150–220M `shipment_events` em 5 anos** ← tabela crítica             |
+| Portal do cliente         | 150–200 rps de pico, leitura predominante                   | atendido por `cargoCode` único + `(customerId, status)`                |
+| Retenção do histórico     | 5 anos, consultável                                         | particionamento mensal + `MERGE`/`SWITCH` para arquivo (futuro)        |
+| Disponibilidade           | 99,5% em horário comercial                                  | decisão de infra (AG/replica), não de schema                           |
+| Sensibilidade             | clientes concorrentes; vazamento é incidente crítico (LGPD) | scoping por token (`User.customerId`); posse no lookup por `cargoCode` |
 
 **Limites declarados:**
 
@@ -198,3 +198,7 @@ Evolução futura, simétrica ao split: job/script com `SWITCH` da partição ma
 - Massa: 15 customers, 14 users (2 admin, 6 operadores vinculados cada um ao seu cliente, 6 usuários CLIENTE vinculados a customers), 12 shipments (rotas BR + 2 internacionais) cobrindo todos os status, ~2–4 eventos por carga cobrindo `CREATED → IN_TRANSIT → TRANSFERRED → DELIVERED`.
 - `passwordHash` usa scrypt (`node:crypto`, salt aleatório, comparação em tempo constante); o seed define a senha padrão de dev apenas no `create` (re-seed nunca reseta senhas) e migra o antigo placeholder uma única vez. Nunca expor em responses (presenters omitem o campo).
 - A timeline de eventos deriva de `departureDate`/`estimatedDeliveryDate` (offsets proporcionais) — dados coerentes entre carga e histórico.
+
+## Outbox e idempotência de tracking
+
+`tracking_outbox.payload` preserva a ocorrência bruta até o worker concluir a transação que grava `shipment_events` e, para status, atualiza `shipments`. O job usa `tracking_outbox.id` como ID BullMQ, permitindo republicação após falha do dispatcher. `tracking_idempotency_keys` guarda o hash do corpo normalizado de localização por cinco anos; uma rotina horária remove registros expirados. Os índices do outbox atendem o despacho pendente e a validação serializada de transições ainda não processadas.

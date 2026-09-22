@@ -108,6 +108,10 @@ src/
 - MSSQL 2022 em Docker (`docker-compose.yml`), healthcheck com `sqlcmd`.
 - Prisma 7 usa **driver adapter** (`@prisma/adapter-mssql`): `PrismaClient` recebe `new PrismaMssql(DATABASE_URL)`.
 - `PrismaService` conecta no `onModuleInit` e desconecta no `onModuleDestroy`.
+
+## Ingestão assíncrona de tracking
+
+As rotas de status e localização validam a entrada e gravam o JSON original no outbox SQL antes de responder 202. O dispatcher publica jobs BullMQ com ID determinístico e reconcilia jobs ausentes no Redis; por isso, o SQL é a fonte de recuperação. O worker consome em processo separado (`node dist/worker.js`), serializa por carga com lock Redis e conclui evento, estado atual e marcação do outbox em uma única transação. Jobs usam retry exponencial com jitter e seguem para a DLQ após 24 horas. A integração HTTP de geocodificação fica na infraestrutura.
 - MSSQL não tem `enum` nativo — validar em domínio, persistir como `String`.
 
 ## Testes

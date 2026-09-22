@@ -11,7 +11,7 @@
 nvm use                 # usa o Node do .nvmrc (24.21.0)
 nvm install             # (primeira vez, se a versão ainda não existir)
 
-docker compose up -d    # MSSQL 2022 na porta 1433 (aguarde healthcheck)
+docker compose up -d    # MSSQL 2022 na porta 1433 e Redis na porta 6380
 npm ci
 cp .env.example .env    # preencha DATABASE_URL/MSSQL_SA_PASSWORD
 
@@ -27,9 +27,10 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 | `npm run start:dev`    | dev com watch                                                                                                                                                                      |
 | `npm run build`        | compila para `dist/`                                                                                                                                                               |
 | `npm run start:prod`   | roda `dist/main.js`                                                                                                                                                                |
+| `npm run start:worker` | inicia o processo de consumo da fila de tracking                                                                                                                                   |
 | `npm test`             | testes unit + arquitetura                                                                                                                                                          |
 | `npm run test:ci`      | testes unit + arquitetura com relatórios JUnit e cobertura                                                                                                                         |
-| `npm run test:e2e`     | testes e2e (precisa do banco no ar)                                                                                                                                                |
+| `npm run test:e2e`     | testes e2e (precisa de SQL Server e Redis no ar)                                                                                                                                   |
 | `npm run lint`         | oxlint type-aware                                                                                                                                                                  |
 | `npm run db:migrate`   | `prisma migrate dev` + `prisma generate`                                                                                                                                           |
 | `npm run db:generate`  | `prisma generate` (recria `src/generated/prisma`)                                                                                                                                  |
@@ -48,6 +49,12 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 - Senha do `sa` precisa de maiúscula, minúscula, dígito e símbolo (>= 8 chars), senão o container reinicia em loop.
 - Conexão local usa `encrypt=true;trustServerCertificate=true` (certificado autoassinado do container).
 - Sem `enum` nativo: usar `String` no schema e validar no domínio.
+
+## Processamento assíncrono de tracking
+
+O recebimento de status e localização grava o evento bruto e o outbox em uma transação SQL. O dispatcher da API publica jobs com o identificador do outbox no BullMQ; `npm run start:worker` consome a fila. Configure `TRACKING_QUEUE_ENABLED=true`, `REDIS_HOST`, `REDIS_PORT` e, em produção, `REDIS_TLS=true` e `REDIS_PASSWORD`. O worker também usa `TRACKING_WORKER_ROLE=true`; processos de API usam `TRACKING_WORKER_ROLE=false`.
+
+O worker usa `GEOCODER_URL` opcional (compatível com resposta de busca Nominatim), `GEOCODER_USER_AGENT`, `GEOCODE_RATE_LIMIT`, `GEOCODER_API_KEY` opcional, `GEOCODER_CACHE_TTL_SECONDS`, `GEOCODER_CIRCUIT_FAILURES` e `GEOCODER_CIRCUIT_COOLDOWN_MS`. A indisponibilidade do provedor mantém o texto da localização. Jobs tentam novamente com backoff exponencial e jitter durante até 24 horas; depois seguem para a fila DLQ, com replay limitado por `DLQ_REPLAY_INTERVAL_MS`.
 
 ## Client gerado
 

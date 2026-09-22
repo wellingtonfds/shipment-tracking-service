@@ -30,6 +30,7 @@ import { MarkShipmentDeliveredUseCase } from '../../../application/shipments/use
 import { UpdateShipmentLocationUseCase } from '../../../application/shipments/use-cases/update-shipment-location.use-case.js';
 import { UpdateShipmentStatusUseCase } from '../../../application/shipments/use-cases/update-shipment-status.use-case.js';
 import { PrismaShipmentRepositoryAdapter } from '../../database/shipments/prisma-shipment-repository.adapter.js';
+import { TrackingOutboxWorkerService } from '../../database/shipments/tracking-outbox-worker.service.js';
 import { PrismaUserRepositoryAdapter } from '../../database/users/prisma-user-repository.adapter.js';
 import { CustomersModule } from '../customers/customers.module.js';
 import { HistoricoController } from './historico.controller.js';
@@ -39,47 +40,78 @@ import { TrackingController } from './tracking.controller.js';
   imports: [CustomersModule],
   controllers: [TrackingController, HistoricoController],
   providers: [
+    TrackingOutboxWorkerService,
     { provide: SHIPMENT_REPOSITORY, useClass: PrismaShipmentRepositoryAdapter },
     { provide: USER_REPOSITORY, useClass: PrismaUserRepositoryAdapter },
     {
       provide: CREATE_SHIPMENT_USE_CASE,
-      useFactory: (shipments: ShipmentRepositoryPort, customers: CustomerRepositoryPort, users: UserRepositoryPort) => new CreateShipmentUseCase(shipments, customers, users),
+      useFactory: (
+        shipments: ShipmentRepositoryPort,
+        customers: CustomerRepositoryPort,
+        users: UserRepositoryPort,
+      ) => new CreateShipmentUseCase(shipments, customers, users),
       inject: [SHIPMENT_REPOSITORY, CUSTOMER_REPOSITORY, USER_REPOSITORY],
     },
-    { provide: LIST_SHIPMENTS_USE_CASE, useFactory: (shipments: ShipmentRepositoryPort) => new ListShipmentsUseCase(shipments), inject: [SHIPMENT_REPOSITORY] },
+    {
+      provide: LIST_SHIPMENTS_USE_CASE,
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new ListShipmentsUseCase(shipments),
+      inject: [SHIPMENT_REPOSITORY],
+    },
     {
       provide: LIST_SHIPMENTS_BY_STATUS_USE_CASE,
-      useFactory: (list: ListShipmentsUseCase) => new ListShipmentsByStatusUseCase(list),
+      useFactory: (list: ListShipmentsUseCase) =>
+        new ListShipmentsByStatusUseCase(list),
       inject: [LIST_SHIPMENTS_USE_CASE],
     },
-    { provide: GET_SHIPMENT_USE_CASE, useFactory: (shipments: ShipmentRepositoryPort) => new GetShipmentUseCase(shipments), inject: [SHIPMENT_REPOSITORY] },
+    {
+      provide: GET_SHIPMENT_USE_CASE,
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new GetShipmentUseCase(shipments),
+      inject: [SHIPMENT_REPOSITORY],
+    },
     {
       provide: UPDATE_SHIPMENT_STATUS_USE_CASE,
-      useFactory: (shipments: ShipmentRepositoryPort) => new UpdateShipmentStatusUseCase(shipments),
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new UpdateShipmentStatusUseCase(shipments),
       inject: [SHIPMENT_REPOSITORY],
     },
     {
       provide: UPDATE_SHIPMENT_LOCATION_USE_CASE,
-      useFactory: (shipments: ShipmentRepositoryPort) => new UpdateShipmentLocationUseCase(shipments),
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new UpdateShipmentLocationUseCase(shipments),
       inject: [SHIPMENT_REPOSITORY],
     },
     {
       provide: MARK_SHIPMENT_DELIVERED_USE_CASE,
-      useFactory: (shipments: ShipmentRepositoryPort) => new MarkShipmentDeliveredUseCase(shipments),
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new MarkShipmentDeliveredUseCase(shipments),
       inject: [SHIPMENT_REPOSITORY],
     },
-    { provide: CANCEL_SHIPMENT_USE_CASE, useFactory: (shipments: ShipmentRepositoryPort) => new CancelShipmentUseCase(shipments), inject: [SHIPMENT_REPOSITORY] },
+    {
+      provide: CANCEL_SHIPMENT_USE_CASE,
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new CancelShipmentUseCase(shipments),
+      inject: [SHIPMENT_REPOSITORY],
+    },
     {
       provide: GET_SHIPMENT_HISTORY_USE_CASE,
-      useFactory: (shipments: ShipmentRepositoryPort) => new GetShipmentHistoryUseCase(shipments),
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new GetShipmentHistoryUseCase(shipments),
       inject: [SHIPMENT_REPOSITORY],
     },
     {
       provide: LIST_SHIPMENT_EVENTS_USE_CASE,
-      useFactory: (shipments: ShipmentRepositoryPort) => new ListShipmentEventsUseCase(shipments),
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new ListShipmentEventsUseCase(shipments),
       inject: [SHIPMENT_REPOSITORY],
     },
-    { provide: ADD_SHIPMENT_EVENT_USE_CASE, useFactory: (shipments: ShipmentRepositoryPort) => new AddShipmentEventUseCase(shipments), inject: [SHIPMENT_REPOSITORY] },
+    {
+      provide: ADD_SHIPMENT_EVENT_USE_CASE,
+      useFactory: (shipments: ShipmentRepositoryPort) =>
+        new AddShipmentEventUseCase(shipments),
+      inject: [SHIPMENT_REPOSITORY],
+    },
   ],
 })
 export class TrackingModule {}

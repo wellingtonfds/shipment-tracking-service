@@ -1,8 +1,26 @@
-import { NormalizedCreateShipment, Shipment, ShipmentEvent, ShipmentLocation, ShipmentStatus, ShipmentWithLocation } from '../shipment.entity.js';
+import {
+  NormalizedCreateShipment,
+  Shipment,
+  ShipmentEvent,
+  ShipmentLocation,
+  ShipmentStatus,
+  ShipmentWithLocation,
+} from '../shipment.entity.js';
 
-export type ShipmentOrderField = 'createdAt' | 'departureDate' | 'estimatedDeliveryDate' | 'updatedAt' | 'status';
+export type ShipmentOrderField =
+  | 'createdAt'
+  | 'departureDate'
+  | 'estimatedDeliveryDate'
+  | 'updatedAt'
+  | 'status';
 
-export const SHIPMENT_ORDER_FIELDS: readonly ShipmentOrderField[] = ['createdAt', 'departureDate', 'estimatedDeliveryDate', 'updatedAt', 'status'] as const;
+export const SHIPMENT_ORDER_FIELDS: readonly ShipmentOrderField[] = [
+  'createdAt',
+  'departureDate',
+  'estimatedDeliveryDate',
+  'updatedAt',
+  'status',
+] as const;
 
 export type SortOrder = 'asc' | 'desc';
 
@@ -63,6 +81,22 @@ export interface CreateShipmentEventData {
   readonly createdById?: number | null;
 }
 
+export interface TrackingOutboxInput {
+  readonly shipmentId: number;
+  readonly eventType: 'STATUS' | 'LOCATION';
+  readonly payload: string;
+  readonly deduplicationPayload?: string;
+  readonly idempotencyKey?: string;
+  readonly payloadHash?: string;
+  readonly occurredAt: Date;
+}
+
+export interface AcceptedTrackingUpdate {
+  readonly id: string;
+  readonly acceptedAt: Date;
+  readonly duplicate: boolean;
+}
+
 export interface ShipmentEventFilters {
   readonly shipmentId?: number;
   readonly status?: ShipmentStatus;
@@ -89,10 +123,23 @@ export interface ShipmentRepositoryPort {
   /** Location of the latest event (ordered by occurredAt DESC, id DESC), or null when empty. */
   findLatestLocation(shipmentId: number): Promise<ShipmentLocation | null>;
   /** Latest event location per shipment id (single grouped query, no N+1). */
-  findLatestLocations(shipmentIds: number[]): Promise<Map<number, ShipmentLocation>>;
-  findEventsByShipment(shipmentId: number, page: number, limit: number): Promise<ShipmentEvent[]>;
+  findLatestLocations(
+    shipmentIds: number[],
+  ): Promise<Map<number, ShipmentLocation>>;
+  findEventsByShipment(
+    shipmentId: number,
+    page: number,
+    limit: number,
+  ): Promise<ShipmentEvent[]>;
   countEventsByShipment(shipmentId: number): Promise<number>;
-  findEvents(filters: ShipmentEventFilters, page: number, limit: number): Promise<ShipmentEvent[]>;
+  findEvents(
+    filters: ShipmentEventFilters,
+    page: number,
+    limit: number,
+  ): Promise<ShipmentEvent[]>;
   countEvents(filters: ShipmentEventFilters): Promise<number>;
   createEvent(data: CreateShipmentEventData): Promise<ShipmentEvent>;
+  acceptTrackingUpdate(
+    data: TrackingOutboxInput,
+  ): Promise<AcceptedTrackingUpdate>;
 }

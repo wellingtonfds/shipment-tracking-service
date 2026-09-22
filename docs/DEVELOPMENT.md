@@ -22,19 +22,19 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 
 ## Scripts
 
-| Comando | O que faz |
-| --- | --- |
-| `npm run start:dev` | dev com watch |
-| `npm run build` | compila para `dist/` |
-| `npm run start:prod` | roda `dist/main.js` |
-| `npm test` | testes unit + arquitetura |
-| `npm run test:ci` | testes unit + arquitetura com relatórios JUnit e cobertura |
-| `npm run test:e2e` | testes e2e (precisa do banco no ar) |
-| `npm run lint` | oxlint type-aware |
-| `npm run db:migrate` | `prisma migrate dev` + `prisma generate` |
-| `npm run db:generate` | `prisma generate` (recria `src/generated/prisma`) |
-| `npm run db:seed` | popula o banco com massa fixa/idempotente: customers (15), users (14: 2 admin, 6 operadores vinculados, 6 portal CUSTOMER), shipments (12) e shipment_events (histórico por carga) |
-| `npm run db:partition` | idempotente: cria fronteiras mensais vazias de `shipment_events` até cobrir 24 meses futuros (ver docs/DATABASE.md) |
+| Comando                | O que faz                                                                                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run start:dev`    | dev com watch                                                                                                                                                                      |
+| `npm run build`        | compila para `dist/`                                                                                                                                                               |
+| `npm run start:prod`   | roda `dist/main.js`                                                                                                                                                                |
+| `npm test`             | testes unit + arquitetura                                                                                                                                                          |
+| `npm run test:ci`      | testes unit + arquitetura com relatórios JUnit e cobertura                                                                                                                         |
+| `npm run test:e2e`     | testes e2e (precisa do banco no ar)                                                                                                                                                |
+| `npm run lint`         | oxlint type-aware                                                                                                                                                                  |
+| `npm run db:migrate`   | `prisma migrate dev` + `prisma generate`                                                                                                                                           |
+| `npm run db:generate`  | `prisma generate` (recria `src/generated/prisma`)                                                                                                                                  |
+| `npm run db:seed`      | popula o banco com massa fixa/idempotente: customers (15), users (14: 2 admin, 6 operadores vinculados, 6 portal CUSTOMER), shipments (12) e shipment_events (histórico por carga) |
+| `npm run db:partition` | idempotente: cria fronteiras mensais vazias de `shipment_events` até cobrir 24 meses futuros (ver docs/DATABASE.md)                                                                |
 
 ## Autenticação (dev)
 
@@ -77,3 +77,24 @@ O workflow `.github/workflows/ci.yml` roda em pull requests e pushes para `main`
 - build da imagem Docker após lint e testes passarem.
 
 Os relatórios JUnit e de cobertura ficam disponíveis como artefatos da execução por 14 dias. A imagem é apenas validada no CI e não é publicada em registry.
+
+## Pull requests e releases
+
+O workflow `.github/workflows/pr-title.yml` valida títulos de pull requests destinados a `main` segundo Conventional Commits. Use o formato `<type>[optional scope][!]: <description>`, por exemplo:
+
+- `feat: add shipment export`
+- `fix(tracking): handle missing event`
+- `refactor!: replace authentication contract`
+
+Os tipos aceitos são `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `style` e `test`. O check **Validate PR title** deve ser configurado como obrigatório na proteção da branch `main`. Para que o título validado seja a mensagem analisada no release, use squash merge com a opção do GitHub para usar o título do pull request como mensagem padrão.
+
+Após lint, testes e build Docker concluírem com sucesso em um push para `main`, o job de release executa o Semantic Release. Ele cria tags no formato `vX.Y.Z`, uma GitHub Release com notas automáticas e não publica pacotes npm nem imagens Docker.
+
+| Título/commit                                                                   | Incremento  |
+| ------------------------------------------------------------------------------- | ----------- |
+| `feat`                                                                          | minor       |
+| `fix`, `perf`, `revert`                                                         | patch       |
+| qualquer tipo com `!` ou `BREAKING CHANGE`                                      | major       |
+| `build`, `chore`, `ci`, `docs`, `refactor`, `style`, `test` sem breaking change | sem release |
+
+Como não há tags anteriores, a primeira release publicável será `v1.0.0`. A versão em `package.json` e `package-lock.json` não é atualizada automaticamente; tags e GitHub Releases são a fonte oficial de versão.

@@ -4,11 +4,15 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { InjectBullBoard, type BullBoardInstance } from '@bull-board/nestjs';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { createHash, randomUUID } from 'node:crypto';
 import { rmSync, writeFileSync } from 'node:fs';
 import { Job, Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { assertTransition } from '../../../domain/shipments/shipment.entity.js';
+import type { AppConfig, TrackingConfig } from '../../config/configuration.js';
 import { PrismaService } from '../prisma.service.js';
 
 interface TrackingPayload {
@@ -39,29 +43,38 @@ export class TrackingOutboxWorkerService
   private heartbeatTimer?: NodeJS.Timeout;
   private dispatching = false;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService<AppConfig>,
+    @InjectBullBoard() private readonly bullBoard: BullBoardInstance,
+  ) {}
+
+  private get tracking(): TrackingConfig {
+    return this.config.getOrThrow<TrackingConfig>('tracking');
+  }
 
   async onModuleInit(): Promise<void> {
-    if (process.env.TRACKING_QUEUE_ENABLED !== 'true') return;
-    const host = process.env.REDIS_HOST;
+    const tracking = this.tracking;
+    if (!tracking.queueEnabled) return;
+    const host = tracking.redis.host;
     if (!host)
       throw new Error(
         'REDIS_HOST is required when TRACKING_QUEUE_ENABLED=true',
       );
     this.redis = new Redis({
       host,
-      port: Number(process.env.REDIS_PORT ?? 6379),
-      password: process.env.REDIS_PASSWORD,
-      tls: process.env.REDIS_TLS === 'true' ? {} : undefined,
+      port: tracking.redis.port,
+      password: tracking.redis.password,
+      tls: tracking.redis.tls ? {} : undefined,
       maxRetriesPerRequest: null,
       lazyConnect: true,
     });
     await this.redis.connect();
     const connection = {
       host,
-      port: Number(process.env.REDIS_PORT ?? 6379),
-      password: process.env.REDIS_PASSWORD,
-      tls: process.env.REDIS_TLS === 'true' ? {} : undefined,
+      port: tracking.redis.port,
+      password: tracking.redis.password,
+      tls: tracking.redis.tls ? {} : undefined,
       maxRetriesPerRequest: null as null,
     };
     this.queue = new Queue(QUEUE_NAME, {
@@ -79,18 +92,20 @@ export class TrackingOutboxWorkerService
         attempts: 1000,
         backoff: {
           type: 'fixed',
-          delay: Number(process.env.DLQ_REPLAY_INTERVAL_MS ?? 86400000),
+          delay: tracking.dlqReplayIntervalMs,
         },
         removeOnFail: false,
       },
     });
-    if (process.env.TRACKING_WORKER_ROLE === 'true') {
+    this.bullBoard.addQueue(new BullMQAdapter(this.queue));
+    this.bullBoard.addQueue(new BullMQAdapter(this.deadQueue));
+    if (tracking.workerRole) {
       this.worker = new Worker(QUEUE_NAME, (job) => this.processJob(job), {
         connection,
-        concurrency: Number(process.env.TRACKING_WORKER_CONCURRENCY ?? 8),
+        concurrency: tracking.workerConcurrency,
         settings: {
           backoffStrategy: (attemptsMade: number) => {
-            const cap = Number(process.env.TRACKING_BACKOFF_MAX_MS ?? 3600000);
+            const cap = tracking.backoffMaxMs;
             const base = Math.min(
               cap,
               1000 * 2 ** Math.min(attemptsMade - 1, 20),
@@ -107,7 +122,7 @@ export class TrackingOutboxWorkerService
           concurrency: 1,
           limiter: {
             max: 1,
-            duration: Number(process.env.DLQ_REPLAY_INTERVAL_MS ?? 86400000),
+            duration: tracking.dlqReplayIntervalMs,
           },
         },
       );
@@ -126,10 +141,10 @@ export class TrackingOutboxWorkerService
         ),
       );
     }
-    if (process.env.TRACKING_DISPATCHER_ROLE !== 'false') {
+    if (tracking.dispatcherRole) {
       this.dispatchTimer = setInterval(
         () => void this.dispatchPending(),
-        Number(process.env.OUTBOX_POLL_INTERVAL_MS ?? 1000),
+        tracking.outboxPollIntervalMs,
       );
       this.dispatchTimer.unref();
       await this.dispatchPending();
@@ -150,7 +165,7 @@ export class TrackingOutboxWorkerService
     if (this.dispatchTimer) clearInterval(this.dispatchTimer);
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
-    if (process.env.TRACKING_WORKER_ROLE === 'true')
+    if (this.tracking.workerRole)
       rmSync('/tmp/tracking-worker-health', { force: true });
     await Promise.all([
       this.worker?.close(),
@@ -174,7 +189,7 @@ export class TrackingOutboxWorkerService
     this.dispatching = true;
     try {
       const reconciliationCutoff = new Date(
-        Date.now() - Number(process.env.OUTBOX_REDIS_RECONCILE_MS ?? 60000),
+        Date.now() - this.tracking.outboxRedisReconcileMs,
       );
       const batch = await this.prisma.trackingOutbox.findMany({
         where: {
@@ -233,12 +248,12 @@ export class TrackingOutboxWorkerService
       lockKey,
       lockToken,
       'PX',
-      Number(process.env.TRACKING_LOCK_TTL_MS ?? 120000),
+      this.tracking.lockTtlMs,
       'NX',
     );
     if (acquired !== 'OK')
       throw new Error(`Shipment ${outbox.shipmentId} is currently locked`);
-    const lockTtl = Number(process.env.TRACKING_LOCK_TTL_MS ?? 120000);
+    const lockTtl = this.tracking.lockTtlMs;
     const renewTimer = setInterval(
       () =>
         void this.redis!.eval(
@@ -319,9 +334,10 @@ export class TrackingOutboxWorkerService
     payload: TrackingPayload,
   ): Promise<Pick<TrackingPayload, 'locationText' | 'latitude' | 'longitude'>> {
     if (payload.latitude !== null && payload.longitude !== null) return payload;
-    const endpoint = process.env.GEOCODER_URL;
+    const geocoder = this.tracking.geocoder;
+    const endpoint = geocoder.url;
     if (!endpoint) return payload;
-    const cooldown = Number(process.env.GEOCODER_CIRCUIT_COOLDOWN_MS ?? 30000);
+    const cooldown = geocoder.circuitCooldownMs;
     const cacheKey = `tracking:geocode:${createHash('sha256').update(`${endpoint}:${payload.locationText.toLowerCase().trim()}`).digest('hex')}`;
     const cached = await this.redis!.get(cacheKey);
     if (cached)
@@ -341,7 +357,7 @@ export class TrackingOutboxWorkerService
         halfOpenKey,
         randomUUID(),
         'PX',
-        Number(process.env.GEOCODER_TIMEOUT_MS ?? 3000) + 1000,
+        geocoder.timeoutMs + 1000,
         'NX',
       );
       if (halfOpen !== 'OK') return payload;
@@ -355,15 +371,12 @@ export class TrackingOutboxWorkerService
       url.searchParams.set('format', 'json');
       url.searchParams.set('limit', '1');
       const headers: Record<string, string> = {
-        'User-Agent': process.env.GEOCODER_USER_AGENT ?? 'tracking-api/1.0',
+        'User-Agent': geocoder.userAgent,
       };
-      if (process.env.GEOCODER_API_KEY)
-        headers.Authorization = `Bearer ${process.env.GEOCODER_API_KEY}`;
+      if (geocoder.apiKey) headers.Authorization = `Bearer ${geocoder.apiKey}`;
       const response = await fetch(url, {
         headers,
-        signal: AbortSignal.timeout(
-          Number(process.env.GEOCODER_TIMEOUT_MS ?? 3000),
-        ),
+        signal: AbortSignal.timeout(geocoder.timeoutMs),
       });
       if (!response.ok) throw new Error(`Geocoder returned ${response.status}`);
       const results = (await response.json()) as Array<{
@@ -395,16 +408,13 @@ export class TrackingOutboxWorkerService
         cacheKey,
         JSON.stringify(coordinates),
         'EX',
-        Number(process.env.GEOCODER_CACHE_TTL_SECONDS ?? 2592000),
+        geocoder.cacheTtlSeconds,
       );
       return { ...payload, ...coordinates };
     } catch (error) {
       const failures = await this.redis!.incr(failuresKey);
       if (failures === 1) await this.redis!.pexpire(failuresKey, cooldown);
-      if (
-        failures >= Number(process.env.GEOCODER_CIRCUIT_FAILURES ?? 5) ||
-        isProbe
-      ) {
+      if (failures >= geocoder.circuitFailures || isProbe) {
         await this.redis!.set(circuitKey, 'open', 'PX', cooldown);
         await this.redis!.set('tracking:geocode:circuit:ever-opened', '1');
         await this.redis!.del(failuresKey);
@@ -419,10 +429,7 @@ export class TrackingOutboxWorkerService
 
   private async waitForGeocodeSlot(): Promise<void> {
     const windowMs = 1000;
-    const maxRequests = Math.max(
-      1,
-      Number(process.env.GEOCODE_RATE_LIMIT ?? 1),
-    );
+    const maxRequests = Math.max(1, this.tracking.geocoder.rateLimit);
     const key = 'tracking:geocode:rate-limit';
     const script =
       "local now=tonumber(ARGV[1]); local window=tonumber(ARGV[2]); local limit=tonumber(ARGV[3]); redis.call('ZREMRANGEBYSCORE',KEYS[1],'-inf',now-window); local count=redis.call('ZCARD',KEYS[1]); if count < limit then redis.call('ZADD',KEYS[1],now,ARGV[4]); redis.call('PEXPIRE',KEYS[1],window); return 0 end; local first=redis.call('ZRANGE',KEYS[1],0,0,'WITHSCORES'); return tonumber(first[2])+window-now";
@@ -447,7 +454,7 @@ export class TrackingOutboxWorkerService
     job: Job<{ outboxId: string }>,
     error: Error,
   ): Promise<void> {
-    const maxAge = Number(process.env.TRACKING_RETRY_WINDOW_MS ?? 86400000);
+    const maxAge = this.tracking.retryWindowMs;
     if (Date.now() - job.timestamp < maxAge) return;
     if (!this.deadQueue) return;
     await this.deadQueue.add('replay', job.data, {

@@ -17,7 +17,7 @@ cp .env.example .env    # preencha DATABASE_URL/MSSQL_SA_PASSWORD
 
 npx prisma migrate dev  # aplica migrations (no Prisma 7 NAO gera o client)
 npm run db:generate     # prisma generate (o postinstall do npm ci tambem gera)
-npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
+npm run start:dev       # API, worker e painel Bull Board
 ```
 
 ## Scripts
@@ -52,9 +52,13 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 
 ## Processamento assíncrono de tracking
 
-O recebimento de status e localização grava o evento bruto e o outbox em uma transação SQL. O dispatcher da API publica jobs com o identificador do outbox no BullMQ; `npm run start:worker` consome a fila. Configure `TRACKING_QUEUE_ENABLED=true`, `REDIS_HOST`, `REDIS_PORT` e, em produção, `REDIS_TLS=true` e `REDIS_PASSWORD`. O worker também usa `TRACKING_WORKER_ROLE=true`; processos de API usam `TRACKING_WORKER_ROLE=false`.
+O recebimento de status e localização grava o evento bruto e o outbox em uma transação SQL. O dispatcher da API publica jobs com o identificador do outbox no BullMQ; com as flags do `.env.example`, `npm run start:dev` também consome a fila no mesmo processo. `npm run start:worker` continua disponível para executar o consumidor separadamente.
 
-O worker usa `GEOCODER_URL` opcional (compatível com resposta de busca Nominatim), `GEOCODER_USER_AGENT`, `GEOCODE_RATE_LIMIT`, `GEOCODER_API_KEY` opcional, `GEOCODER_CACHE_TTL_SECONDS`, `GEOCODER_CIRCUIT_FAILURES` e `GEOCODER_CIRCUIT_COOLDOWN_MS`. A indisponibilidade do provedor mantém o texto da localização. Jobs tentam novamente com backoff exponencial e jitter durante até 24 horas; depois seguem para a fila DLQ, com replay limitado por `DLQ_REPLAY_INTERVAL_MS`.
+Para inspecionar e gerenciar as filas localmente, inicie a aplicação com `npm run start:dev` e acesse `http://127.0.0.1:3000/api/v1/admin/queues`. O painel lista as filas principal e DLQ, incluindo jobs e estados, e permite ações de gerenciamento do BullMQ. Ele fica disponível sem autenticação apenas em desenvolvimento e rejeita conexões remotas. Em produção, a rota retorna `404`.
+
+Configure `TRACKING_QUEUE_ENABLED=true`, `REDIS_HOST`, `REDIS_PORT` e, em produção, `REDIS_TLS=true` e `REDIS_PASSWORD`. O worker também usa `TRACKING_WORKER_ROLE=true`; processos de API usam `TRACKING_WORKER_ROLE=false` quando o consumo roda separado.
+
+Por padrão, o worker usa `https://nominatim.openstreetmap.org/search`, compatível com a resposta de busca do Nominatim. `GEOCODER_URL` permite sobrescrever esse endpoint e seu valor vazio desabilita a geocodificação. Configure `GEOCODER_USER_AGENT`, mantenha `GEOCODE_RATE_LIMIT=1` para a instância pública e use `GEOCODER_API_KEY` somente para provedores que a exijam. Também estão disponíveis `GEOCODER_CACHE_TTL_SECONDS`, `GEOCODER_CIRCUIT_FAILURES` e `GEOCODER_CIRCUIT_COOLDOWN_MS`. A indisponibilidade do provedor mantém o texto da localização. Jobs tentam novamente com backoff exponencial e jitter durante até 24 horas; depois seguem para a fila DLQ, com replay limitado por `DLQ_REPLAY_INTERVAL_MS`.
 
 ## Client gerado
 

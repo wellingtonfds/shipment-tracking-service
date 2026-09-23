@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -7,6 +8,10 @@ import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { createServer } from 'node:http';
 import { PrismaService } from '../src/infrastructure/database/prisma.service.js';
+import type {
+  AppConfig,
+  TrackingConfig,
+} from '../src/infrastructure/config/configuration.js';
 import { TrackingOutboxWorkerService } from '../src/infrastructure/database/shipments/tracking-outbox-worker.service.js';
 
 describe('Tracking (e2e)', () => {
@@ -16,6 +21,7 @@ describe('Tracking (e2e)', () => {
     worker: process.env.TRACKING_WORKER_ROLE,
     host: process.env.REDIS_HOST,
     port: process.env.REDIS_PORT,
+    geocoderUrl: process.env.GEOCODER_URL,
   };
   const stamp = Date.now();
   const codeA = `E2E${stamp}A`;
@@ -32,6 +38,7 @@ describe('Tracking (e2e)', () => {
     process.env.TRACKING_WORKER_ROLE = 'true';
     process.env.REDIS_HOST = '127.0.0.1';
     process.env.REDIS_PORT = '6380';
+    process.env.GEOCODER_URL = '';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -60,6 +67,9 @@ describe('Tracking (e2e)', () => {
     else process.env.REDIS_HOST = previousQueueSettings.host;
     if (previousQueueSettings.port === undefined) delete process.env.REDIS_PORT;
     else process.env.REDIS_PORT = previousQueueSettings.port;
+    if (previousQueueSettings.geocoderUrl === undefined)
+      delete process.env.GEOCODER_URL;
+    else process.env.GEOCODER_URL = previousQueueSettings.geocoderUrl;
   });
 
   const server = (): App => app.getHttpServer();
@@ -528,6 +538,7 @@ describe('Tracking (e2e)', () => {
   });
 
   it('caches geocoding results and keeps text when the provider fails', async () => {
+    const cacheLocation = `Cache checkpoint ${stamp}`;
     await request(server())
       .post('/api/v1/tracking')
       .set('Authorization', `Bearer ${sergioToken}`)
@@ -554,18 +565,28 @@ describe('Tracking (e2e)', () => {
     const address = geocoder.address();
     if (!address || typeof address === 'string')
       throw new Error('Could not start test geocoder');
-    const previousGeocoderUrl = process.env.GEOCODER_URL;
-    const previousCircuitThreshold = process.env.GEOCODER_CIRCUIT_FAILURES;
-    process.env.GEOCODER_URL = `http://127.0.0.1:${address.port}/search`;
-    process.env.GEOCODER_CIRCUIT_FAILURES = '1';
+    const config = app.get(ConfigService<AppConfig>);
+    const previousTracking = config.getOrThrow<TrackingConfig>('tracking');
+    config.set('tracking', {
+      ...previousTracking,
+      geocoder: {
+        ...previousTracking.geocoder,
+        url: `http://127.0.0.1:${address.port}/search`,
+        circuitFailures: 1,
+      },
+    });
     try {
       await request(server())
         .put(`/api/v1/tracking/${codeE}/localizacao`)
         .set('Authorization', `Bearer ${sergioToken}`)
         .set('Idempotency-Key', `e2e-${stamp}-cache-1`)
-        .send({ locationText: 'Cache checkpoint' })
+        .send({ locationText: cacheLocation })
         .expect(202);
-      await waitForHistory('Cache checkpoint', codeE);
+      await waitForHistory(cacheLocation, codeE);
+      expect(
+        providerCalls,
+        'geocoder is called for the uncached location',
+      ).toBe(1);
       const cachedFirst = await request(server())
         .get(`/api/v1/tracking/${codeE}/historico`)
         .set('Authorization', `Bearer ${sergioToken}`)
@@ -578,7 +599,7 @@ describe('Tracking (e2e)', () => {
         .put(`/api/v1/tracking/${codeE}/localizacao`)
         .set('Authorization', `Bearer ${sergioToken}`)
         .set('Idempotency-Key', `e2e-${stamp}-cache-2`)
-        .send({ locationText: 'Cache checkpoint' })
+        .send({ locationText: cacheLocation })
         .expect(202);
       const deadline = Date.now() + 10000;
       let count = 0;
@@ -617,11 +638,7 @@ describe('Tracking (e2e)', () => {
       await waitForHistory('Circuit open fallback', codeE);
       expect(providerCalls).toBe(2);
     } finally {
-      if (previousGeocoderUrl === undefined) delete process.env.GEOCODER_URL;
-      else process.env.GEOCODER_URL = previousGeocoderUrl;
-      if (previousCircuitThreshold === undefined)
-        delete process.env.GEOCODER_CIRCUIT_FAILURES;
-      else process.env.GEOCODER_CIRCUIT_FAILURES = previousCircuitThreshold;
+      config.set('tracking', previousTracking);
       await new Promise<void>((resolve, reject) =>
         geocoder.close((error) => (error ? reject(error) : resolve())),
       );

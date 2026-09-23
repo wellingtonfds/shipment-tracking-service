@@ -11,13 +11,13 @@
 nvm use                 # usa o Node do .nvmrc (24.21.0)
 nvm install             # (primeira vez, se a versão ainda não existir)
 
-docker compose up -d    # MSSQL 2022 na porta 1433 (aguarde healthcheck)
+docker compose up -d    # MSSQL 2022 na porta 1433 e Redis na porta 6380
 npm ci
 cp .env.example .env    # preencha DATABASE_URL/MSSQL_SA_PASSWORD
 
 npx prisma migrate dev  # aplica migrations (no Prisma 7 NAO gera o client)
 npm run db:generate     # prisma generate (o postinstall do npm ci tambem gera)
-npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
+npm run start:dev       # API, worker e painel Bull Board
 ```
 
 ## Scripts
@@ -27,9 +27,10 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 | `npm run start:dev`    | dev com watch                                                                                                                                                                      |
 | `npm run build`        | compila para `dist/`                                                                                                                                                               |
 | `npm run start:prod`   | roda `dist/main.js`                                                                                                                                                                |
+| `npm run start:worker` | inicia o processo de consumo da fila de tracking                                                                                                                                   |
 | `npm test`             | testes unit + arquitetura                                                                                                                                                          |
 | `npm run test:ci`      | testes unit + arquitetura com relatórios JUnit e cobertura                                                                                                                         |
-| `npm run test:e2e`     | testes e2e (precisa do banco no ar)                                                                                                                                                |
+| `npm run test:e2e`     | testes e2e (precisa de SQL Server e Redis no ar)                                                                                                                                   |
 | `npm run lint`         | oxlint type-aware                                                                                                                                                                  |
 | `npm run db:migrate`   | `prisma migrate dev` + `prisma generate`                                                                                                                                           |
 | `npm run db:generate`  | `prisma generate` (recria `src/generated/prisma`)                                                                                                                                  |
@@ -48,6 +49,16 @@ npm run start:dev       # http://localhost:3000/api/v1 — Swagger em /docs
 - Senha do `sa` precisa de maiúscula, minúscula, dígito e símbolo (>= 8 chars), senão o container reinicia em loop.
 - Conexão local usa `encrypt=true;trustServerCertificate=true` (certificado autoassinado do container).
 - Sem `enum` nativo: usar `String` no schema e validar no domínio.
+
+## Processamento assíncrono de tracking
+
+O recebimento de status e localização grava o evento bruto e o outbox em uma transação SQL. O dispatcher da API publica jobs com o identificador do outbox no BullMQ; com as flags do `.env.example`, `npm run start:dev` também consome a fila no mesmo processo. `npm run start:worker` continua disponível para executar o consumidor separadamente.
+
+Para inspecionar e gerenciar as filas localmente, inicie a aplicação com `npm run start:dev` e acesse `http://127.0.0.1:3000/api/v1/admin/queues`. O painel lista as filas principal e DLQ, incluindo jobs e estados, e permite ações de gerenciamento do BullMQ. Ele fica disponível sem autenticação apenas em desenvolvimento e rejeita conexões remotas. Em produção, a rota retorna `404`.
+
+Configure `TRACKING_QUEUE_ENABLED=true`, `REDIS_HOST`, `REDIS_PORT` e, em produção, `REDIS_TLS=true` e `REDIS_PASSWORD`. O worker também usa `TRACKING_WORKER_ROLE=true`; processos de API usam `TRACKING_WORKER_ROLE=false` quando o consumo roda separado.
+
+Por padrão, o worker usa `https://nominatim.openstreetmap.org/search`, compatível com a resposta de busca do Nominatim. `GEOCODER_URL` permite sobrescrever esse endpoint e seu valor vazio desabilita a geocodificação. Configure `GEOCODER_USER_AGENT`, mantenha `GEOCODE_RATE_LIMIT=1` para a instância pública e use `GEOCODER_API_KEY` somente para provedores que a exijam. Também estão disponíveis `GEOCODER_CACHE_TTL_SECONDS`, `GEOCODER_CIRCUIT_FAILURES` e `GEOCODER_CIRCUIT_COOLDOWN_MS`. A indisponibilidade do provedor mantém o texto da localização. Jobs tentam novamente com backoff exponencial e jitter durante até 24 horas; depois seguem para a fila DLQ, com replay limitado por `DLQ_REPLAY_INTERVAL_MS`.
 
 ## Client gerado
 

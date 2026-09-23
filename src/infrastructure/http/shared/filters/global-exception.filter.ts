@@ -1,4 +1,11 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import { DomainError } from '../../../../domain/shared/errors/domain.error.js';
 import type { Request, Response } from 'express';
 
@@ -26,6 +33,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     SHIPMENT_NOT_FOUND: HttpStatus.NOT_FOUND,
     SHIPMENT_CARGO_CODE_IN_USE: HttpStatus.CONFLICT,
     SHIPMENT_CONFLICT: HttpStatus.CONFLICT,
+    IDEMPOTENCY_KEY_CONFLICT: HttpStatus.CONFLICT,
     SHIPMENT_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
     SHIPMENT_INVALID_DATES: HttpStatus.UNPROCESSABLE_ENTITY,
     SHIPMENT_INVALID_TRANSITION: HttpStatus.UNPROCESSABLE_ENTITY,
@@ -42,7 +50,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const body = this.buildBody(exception, request.url);
 
     if (body.statusCode >= 500) {
-      this.logger.error(body.message, exception instanceof Error ? exception.stack : undefined);
+      this.logger.error(
+        body.message,
+        exception instanceof Error ? exception.stack : undefined,
+      );
     }
 
     response.status(body.statusCode).json(body);
@@ -53,7 +64,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof DomainError) {
       return {
-        statusCode: this.statusByCode[exception.code] ?? HttpStatus.UNPROCESSABLE_ENTITY,
+        statusCode:
+          this.statusByCode[exception.code] ?? HttpStatus.UNPROCESSABLE_ENTITY,
         code: exception.code,
         message: exception.message,
         path,
@@ -66,13 +78,25 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const body = exception.getResponse();
       return {
         statusCode: status,
-        code: typeof body === 'object' && body !== null && 'code' in body ? String((body as Record<string, unknown>).code) : exception.name,
-        message: typeof body === 'object' && body !== null && 'message' in body ? String((body as Record<string, unknown>).message) : exception.message,
+        code:
+          typeof body === 'object' && body !== null && 'code' in body
+            ? String((body as Record<string, unknown>).code)
+            : exception.name,
+        message:
+          typeof body === 'object' && body !== null && 'message' in body
+            ? String((body as Record<string, unknown>).message)
+            : exception.message,
         path,
         timestamp,
       };
     }
 
-    return { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, code: 'INTERNAL_ERROR', message: 'Internal server error', path, timestamp };
+    return {
+      statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+      code: 'INTERNAL_ERROR',
+      message: 'Internal server error',
+      path,
+      timestamp,
+    };
   }
 }

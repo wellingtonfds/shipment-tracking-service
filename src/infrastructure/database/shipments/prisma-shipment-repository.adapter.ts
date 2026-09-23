@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { IdempotencyKeyConflictError } from '../../../domain/shipments/errors/idempotency-key-conflict.error.js';
+import { assertTransition } from '../../../domain/shipments/shipment.entity.js';
 import { InvalidShipmentError } from '../../../domain/shipments/shipment.entity.js';
-import { Shipment, ShipmentEvent, ShipmentLocation, ShipmentStatus } from '../../../domain/shipments/shipment.entity.js';
+import {
+  Shipment,
+  ShipmentEvent,
+  ShipmentLocation,
+  ShipmentStatus,
+} from '../../../domain/shipments/shipment.entity.js';
 import { ShipmentCargoCodeInUseError } from '../../../domain/shipments/errors/shipment-cargo-code-in-use.error.js';
 import { ShipmentConflictError } from '../../../domain/shipments/errors/shipment-conflict.error.js';
 import { ShipmentNotFoundError } from '../../../domain/shipments/errors/shipment-not-found.error.js';
@@ -12,6 +20,7 @@ import {
   ShipmentListQuery,
   ShipmentOrderField,
   ShipmentRepositoryPort,
+  TrackingOutboxInput,
   ShipmentStatusUpdate,
   SortOrder,
 } from '../../../domain/shipments/ports/shipment-repository.port.js';
@@ -77,7 +86,9 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
   }
 
   async findByCargoCode(cargoCode: string): Promise<Shipment | null> {
-    const record = await this.prisma.shipment.findUnique({ where: { cargoCode } });
+    const record = await this.prisma.shipment.findUnique({
+      where: { cargoCode },
+    });
     return record ? this.toShipment(record) : null;
   }
 
@@ -135,10 +146,16 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
   async updateStatusOnce(data: ShipmentStatusUpdate): Promise<Shipment> {
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.shipment.updateMany({
-        where: { id: data.shipmentId, status: data.expectedStatus, updatedAt: data.expectedUpdatedAt },
+        where: {
+          id: data.shipmentId,
+          status: data.expectedStatus,
+          updatedAt: data.expectedUpdatedAt,
+        },
         data: {
           status: data.nextStatus,
-          ...(data.deliveredAt !== null ? { deliveredAt: data.deliveredAt } : {}),
+          ...(data.deliveredAt !== null
+            ? { deliveredAt: data.deliveredAt }
+            : {}),
         },
       });
       if (updated.count === 0) {
@@ -156,7 +173,9 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
           createdById: data.createdById,
         },
       });
-      const record = await tx.shipment.findFirst({ where: { id: data.shipmentId } });
+      const record = await tx.shipment.findFirst({
+        where: { id: data.shipmentId },
+      });
       if (!record) {
         throw new ShipmentNotFoundError(String(data.shipmentId));
       }
@@ -164,7 +183,9 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
     });
   }
 
-  async findLatestLocation(shipmentId: number): Promise<ShipmentLocation | null> {
+  async findLatestLocation(
+    shipmentId: number,
+  ): Promise<ShipmentLocation | null> {
     const record = await this.prisma.shipmentEvent.findFirst({
       where: { shipmentId },
       orderBy: this.eventOrderBy(),
@@ -173,10 +194,16 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
     if (!record) {
       return null;
     }
-    return { locationText: record.locationText, latitude: this.toNumber(record.latitude), longitude: this.toNumber(record.longitude) };
+    return {
+      locationText: record.locationText,
+      latitude: this.toNumber(record.latitude),
+      longitude: this.toNumber(record.longitude),
+    };
   }
 
-  async findLatestLocations(shipmentIds: number[]): Promise<Map<number, ShipmentLocation>> {
+  async findLatestLocations(
+    shipmentIds: number[],
+  ): Promise<Map<number, ShipmentLocation>> {
     if (shipmentIds.length === 0) {
       return new Map();
     }
@@ -185,9 +212,23 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
       where: { shipmentId: { in: shipmentIds } },
       orderBy: [{ shipmentId: 'asc' }, { occurredAt: 'desc' }, { id: 'desc' }],
       distinct: ['shipmentId'],
-      select: { shipmentId: true, locationText: true, latitude: true, longitude: true },
+      select: {
+        shipmentId: true,
+        locationText: true,
+        latitude: true,
+        longitude: true,
+      },
     });
-    return new Map(records.map((record) => [record.shipmentId, { locationText: record.locationText, latitude: this.toNumber(record.latitude), longitude: this.toNumber(record.longitude) }]));
+    return new Map(
+      records.map((record) => [
+        record.shipmentId,
+        {
+          locationText: record.locationText,
+          latitude: this.toNumber(record.latitude),
+          longitude: this.toNumber(record.longitude),
+        },
+      ]),
+    );
   }
 
   async deleteByCargoCode(cargoCode: string): Promise<void> {
@@ -195,14 +236,21 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
       // Shipment -> ShipmentEvent is onDelete Cascade: removing the cargo removes its history.
       await this.prisma.shipment.delete({ where: { cargoCode } });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
         throw new ShipmentNotFoundError(cargoCode);
       }
       throw error;
     }
   }
 
-  async findEventsByShipment(shipmentId: number, page: number, limit: number): Promise<ShipmentEvent[]> {
+  async findEventsByShipment(
+    shipmentId: number,
+    page: number,
+    limit: number,
+  ): Promise<ShipmentEvent[]> {
     const records = await this.prisma.shipmentEvent.findMany({
       where: { shipmentId },
       orderBy: this.eventOrderBy(),
@@ -216,7 +264,11 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
     return this.prisma.shipmentEvent.count({ where: { shipmentId } });
   }
 
-  async findEvents(filters: ShipmentEventFilters, page: number, limit: number): Promise<ShipmentEvent[]> {
+  async findEvents(
+    filters: ShipmentEventFilters,
+    page: number,
+    limit: number,
+  ): Promise<ShipmentEvent[]> {
     const records = await this.prisma.shipmentEvent.findMany({
       where: this.eventWhere(filters),
       orderBy: this.eventOrderBy(),
@@ -246,7 +298,144 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
     return this.toEvent(record);
   }
 
-  private async conflictOrNotFound(tx: Prisma.TransactionClient, shipmentId: number): Promise<ShipmentConflictError | ShipmentNotFoundError> {
+  async acceptTrackingUpdate(
+    data: TrackingOutboxInput,
+  ): Promise<{ id: string; acceptedAt: Date; duplicate: boolean }> {
+    return this.acceptTrackingUpdateAttempt(data, 3);
+  }
+
+  private async acceptTrackingUpdateAttempt(
+    data: TrackingOutboxInput,
+    retriesLeft: number,
+  ): Promise<{ id: string; acceptedAt: Date; duplicate: boolean }> {
+    const payloadHash = createHash('sha256')
+      .update(data.deduplicationPayload ?? data.payload)
+      .digest('hex');
+    try {
+      return await this.prisma.$transaction(
+        async (tx) => {
+          if (data.idempotencyKey) {
+            const existing = await tx.trackingIdempotencyKey.findUnique({
+              where: {
+                shipmentId_key: {
+                  shipmentId: data.shipmentId,
+                  key: data.idempotencyKey,
+                },
+              },
+            });
+            if (existing && existing.expiresAt > new Date()) {
+              if (existing.payloadHash !== payloadHash)
+                throw new IdempotencyKeyConflictError();
+              const original = await tx.trackingOutbox.findUniqueOrThrow({
+                where: { id: existing.outboxId },
+                select: { id: true, createdAt: true },
+              });
+              return {
+                id: original.id,
+                acceptedAt: original.createdAt,
+                duplicate: true,
+              };
+            }
+            if (existing) {
+              await tx.trackingIdempotencyKey.delete({
+                where: { id: existing.id },
+              });
+            }
+          }
+          if (data.eventType === 'STATUS') {
+            const payload = JSON.parse(data.payload) as { status: string };
+            const pending = await tx.trackingOutbox.findFirst({
+              where: {
+                shipmentId: data.shipmentId,
+                eventType: 'STATUS',
+                processedAt: null,
+              },
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            });
+            const current = await tx.shipment.findUnique({
+              where: { id: data.shipmentId },
+            });
+            if (!current)
+              throw new ShipmentNotFoundError(String(data.shipmentId));
+            const effectiveStatus = pending
+              ? (JSON.parse(pending.payload) as { status: string }).status
+              : current.status;
+            assertTransition(
+              effectiveStatus as ShipmentStatus,
+              payload.status as ShipmentStatus,
+            );
+          }
+          const outbox = await tx.trackingOutbox.create({
+            data: {
+              shipmentId: data.shipmentId,
+              eventType: data.eventType,
+              payload: data.payload,
+            },
+          });
+          if (data.idempotencyKey) {
+            const expiresAt = new Date();
+            expiresAt.setUTCFullYear(expiresAt.getUTCFullYear() + 5);
+            await tx.trackingIdempotencyKey.create({
+              data: {
+                shipmentId: data.shipmentId,
+                key: data.idempotencyKey,
+                payloadHash,
+                outboxId: outbox.id,
+                expiresAt,
+              },
+            });
+          }
+          return {
+            id: outbox.id,
+            acceptedAt: outbox.createdAt,
+            duplicate: false,
+          };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error) {
+      if (
+        data.idempotencyKey &&
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2002' || error.code === 'P2034')
+      ) {
+        const existing = await this.prisma.trackingIdempotencyKey.findUnique({
+          where: {
+            shipmentId_key: {
+              shipmentId: data.shipmentId,
+              key: data.idempotencyKey,
+            },
+          },
+        });
+        if (existing) {
+          if (existing.payloadHash !== payloadHash)
+            throw new IdempotencyKeyConflictError();
+          const original = await this.prisma.trackingOutbox.findUniqueOrThrow({
+            where: { id: existing.outboxId },
+            select: { id: true, createdAt: true },
+          });
+          return {
+            id: original.id,
+            acceptedAt: original.createdAt,
+            duplicate: true,
+          };
+        }
+      }
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2034' &&
+        retriesLeft > 1
+      ) {
+        return this.acceptTrackingUpdateAttempt(data, retriesLeft - 1);
+      }
+      throw error;
+    }
+  }
+
+  private async conflictOrNotFound(
+    tx: Prisma.TransactionClient,
+    shipmentId: number,
+  ): Promise<ShipmentConflictError | ShipmentNotFoundError> {
     const current = await tx.shipment.findFirst({ where: { id: shipmentId } });
     if (!current) {
       return new ShipmentNotFoundError(String(shipmentId));
@@ -254,31 +443,76 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
     return new ShipmentConflictError(this.toShipment(current));
   }
 
-  private shipmentWhere(filters: ShipmentListFilters): Prisma.ShipmentWhereInput {
+  private shipmentWhere(
+    filters: ShipmentListFilters,
+  ): Prisma.ShipmentWhereInput {
     const customerId = filters.customerScopeId ?? filters.customerId;
     return {
       ...(filters.status !== undefined ? { status: filters.status } : {}),
-      ...(customerId !== undefined && customerId !== null ? { customerId } : {}),
-      ...(filters.handledById !== undefined ? { handledById: filters.handledById } : {}),
-      ...(filters.departureFrom !== undefined || filters.departureTo !== undefined
-        ? { departureDate: { ...(filters.departureFrom !== undefined ? { gte: filters.departureFrom } : {}), ...(filters.departureTo !== undefined ? { lte: filters.departureTo } : {}) } }
+      ...(customerId !== undefined && customerId !== null
+        ? { customerId }
         : {}),
-      ...(filters.estimatedFrom !== undefined || filters.estimatedTo !== undefined
-        ? { estimatedDeliveryDate: { ...(filters.estimatedFrom !== undefined ? { gte: filters.estimatedFrom } : {}), ...(filters.estimatedTo !== undefined ? { lte: filters.estimatedTo } : {}) } }
+      ...(filters.handledById !== undefined
+        ? { handledById: filters.handledById }
+        : {}),
+      ...(filters.departureFrom !== undefined ||
+      filters.departureTo !== undefined
+        ? {
+            departureDate: {
+              ...(filters.departureFrom !== undefined
+                ? { gte: filters.departureFrom }
+                : {}),
+              ...(filters.departureTo !== undefined
+                ? { lte: filters.departureTo }
+                : {}),
+            },
+          }
+        : {}),
+      ...(filters.estimatedFrom !== undefined ||
+      filters.estimatedTo !== undefined
+        ? {
+            estimatedDeliveryDate: {
+              ...(filters.estimatedFrom !== undefined
+                ? { gte: filters.estimatedFrom }
+                : {}),
+              ...(filters.estimatedTo !== undefined
+                ? { lte: filters.estimatedTo }
+                : {}),
+            },
+          }
         : {}),
     };
   }
 
-  private shipmentOrderBy(orderBy: ShipmentOrderField, order: SortOrder): Prisma.ShipmentOrderByWithRelationInput[] {
-    return [{ [orderBy]: order } as Prisma.ShipmentOrderByWithRelationInput, { id: 'desc' }];
+  private shipmentOrderBy(
+    orderBy: ShipmentOrderField,
+    order: SortOrder,
+  ): Prisma.ShipmentOrderByWithRelationInput[] {
+    return [
+      { [orderBy]: order } as Prisma.ShipmentOrderByWithRelationInput,
+      { id: 'desc' },
+    ];
   }
 
-  private eventWhere(filters: ShipmentEventFilters): Prisma.ShipmentEventWhereInput {
+  private eventWhere(
+    filters: ShipmentEventFilters,
+  ): Prisma.ShipmentEventWhereInput {
     return {
-      ...(filters.shipmentId !== undefined ? { shipmentId: filters.shipmentId } : {}),
+      ...(filters.shipmentId !== undefined
+        ? { shipmentId: filters.shipmentId }
+        : {}),
       ...(filters.status !== undefined ? { status: filters.status } : {}),
       ...(filters.occurredFrom !== undefined || filters.occurredTo !== undefined
-        ? { occurredAt: { ...(filters.occurredFrom !== undefined ? { gte: filters.occurredFrom } : {}), ...(filters.occurredTo !== undefined ? { lte: filters.occurredTo } : {}) } }
+        ? {
+            occurredAt: {
+              ...(filters.occurredFrom !== undefined
+                ? { gte: filters.occurredFrom }
+                : {}),
+              ...(filters.occurredTo !== undefined
+                ? { lte: filters.occurredTo }
+                : {}),
+            },
+          }
         : {}),
     };
   }
@@ -293,7 +527,9 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
         throw new ShipmentCargoCodeInUseError(cargoCode);
       }
       if (error.code === 'P2003') {
-        throw new InvalidShipmentError('Linked customer or handler does not exist');
+        throw new InvalidShipmentError(
+          'Linked customer or handler does not exist',
+        );
       }
     }
   }

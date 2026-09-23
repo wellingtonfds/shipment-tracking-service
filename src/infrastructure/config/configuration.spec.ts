@@ -81,4 +81,15 @@ describe('configuration', () => {
     process.env.GEOCODER_URL = 'ftp://example.com/search';
     expect(configuration).toThrow('GEOCODER_URL must be a valid HTTP(S) URL');
   });
+
+  it('rejects malformed numeric and boolean tracking settings', () => {
+    process.env.TRACKING_QUEUE_ENABLED = 'sometimes';
+    expect(configuration).toThrow(
+      'TRACKING_QUEUE_ENABLED must be true or false',
+    );
+
+    process.env.TRACKING_QUEUE_ENABLED = 'false';
+    process.env.REDIS_PORT = '0';
+    expect(configuration).toThrow('REDIS_PORT must be a positive integer');
+  });
 });

@@ -129,9 +129,11 @@ Runner: **Vitest** (`vitest.config.ts`; o e2e usa `vitest.config.e2e.ts` separad
 
 | Tipo        | O que cobre                                | Onde                        |
 | ----------- | ------------------------------------------ | --------------------------- |
-| Unit        | use-cases com ports falsas (sem Nest)      | `src/**/*.spec.ts`          |
+| Unit        | use-cases e infraestrutura com dependências simuladas (sem banco ou Redis reais) | `src/**/*.spec.ts` |
 | Arquitetura | proibição de imports que cruzam fronteiras | `test/architecture.spec.ts` |
 | E2E         | request HTTP real contra AppModule         | `test/*.e2e-spec.ts`        |
+
+`npm run test:cov` e `npm run test:ci` medem o código autoral de `src/`, incluindo `src/infrastructure`, e exigem no mínimo 70% de statements. O client Prisma gerado (`src/generated/**`), os arquivos de teste e os DTOs de tracking `mark-shipment-delivered`, `update-shipment-location`, `update-shipment-status`, `add-shipment-event` e `create-shipment` não entram no denominador; os DTOs continuam nos contratos HTTP.
 
 ## Swagger
 

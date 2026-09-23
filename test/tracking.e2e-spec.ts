@@ -1,5 +1,6 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, Logger, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { vi } from 'vitest';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module.js';
@@ -581,10 +582,18 @@ describe('Tracking (e2e)', () => {
         }),
       },
     });
-    await workerService.handleFailure(
-      { timestamp: Date.now() - 86400001, data: { outboxId: deadLetter.id } },
-      new Error('simulated retries exhausted'),
-    );
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    try {
+      await workerService.handleFailure(
+        { timestamp: Date.now() - 86400001, data: { outboxId: deadLetter.id } },
+        new Error('simulated retries exhausted'),
+      );
+      expect(log).toHaveBeenCalledWith(
+        `Tracking event ${deadLetter.id} moved to periodic DLQ replay after the retry window: Error: simulated retries exhausted`,
+      );
+    } finally {
+      log.mockRestore();
+    }
     await waitForHistory('DLQ replay', codeG);
     const rows = await prisma.trackingOutbox.findMany({
       where: { id: { in: [pending.id, deadLetter.id] } },

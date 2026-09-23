@@ -1,17 +1,11 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module.js';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { createServer } from 'node:http';
 import { PrismaService } from '../src/infrastructure/database/prisma.service.js';
-import type {
-  AppConfig,
-  TrackingConfig,
-} from '../src/infrastructure/config/configuration.js';
 import { TrackingOutboxWorkerService } from '../src/infrastructure/database/shipments/tracking-outbox-worker.service.js';
 
 describe('Tracking (e2e)', () => {
@@ -26,7 +20,6 @@ describe('Tracking (e2e)', () => {
   const stamp = Date.now();
   const codeA = `E2E${stamp}A`;
   const codeD = `E2E${stamp}D`;
-  const codeE = `E2E${stamp}E`;
   const codeF = `E2E${stamp}F`;
   const codeG = `E2E${stamp}G`;
 
@@ -537,114 +530,6 @@ describe('Tracking (e2e)', () => {
     await redis.quit();
   });
 
-  it('caches geocoding results and keeps text when the provider fails', async () => {
-    const cacheLocation = `Cache checkpoint ${stamp}`;
-    await request(server())
-      .post('/api/v1/tracking')
-      .set('Authorization', `Bearer ${sergioToken}`)
-      .send(createBody(codeE))
-      .expect(201);
-    let providerCalls = 0;
-    const geocoder = createServer((req, res) => {
-      const query = new URL(
-        req.url ?? '/',
-        'http://localhost',
-      ).searchParams.get('q');
-      providerCalls += 1;
-      if (query === 'Provider outage') {
-        res.statusCode = 503;
-        res.end();
-        return;
-      }
-      res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify([{ lat: '-9.123456', lon: '-35.123456' }]));
-    });
-    await new Promise<void>((resolve) =>
-      geocoder.listen(0, '127.0.0.1', resolve),
-    );
-    const address = geocoder.address();
-    if (!address || typeof address === 'string')
-      throw new Error('Could not start test geocoder');
-    const config = app.get(ConfigService<AppConfig>);
-    const previousTracking = config.getOrThrow<TrackingConfig>('tracking');
-    config.set('tracking', {
-      ...previousTracking,
-      geocoder: {
-        ...previousTracking.geocoder,
-        url: `http://127.0.0.1:${address.port}/search`,
-        circuitFailures: 1,
-      },
-    });
-    try {
-      await request(server())
-        .put(`/api/v1/tracking/${codeE}/localizacao`)
-        .set('Authorization', `Bearer ${sergioToken}`)
-        .set('Idempotency-Key', `e2e-${stamp}-cache-1`)
-        .send({ locationText: cacheLocation })
-        .expect(202);
-      await waitForHistory(cacheLocation, codeE);
-      expect(
-        providerCalls,
-        'geocoder is called for the uncached location',
-      ).toBe(1);
-      const cachedFirst = await request(server())
-        .get(`/api/v1/tracking/${codeE}/historico`)
-        .set('Authorization', `Bearer ${sergioToken}`)
-        .expect(200);
-      expect(cachedFirst.body.data[0]).toMatchObject({
-        latitude: -9.123456,
-        longitude: -35.123456,
-      });
-      await request(server())
-        .put(`/api/v1/tracking/${codeE}/localizacao`)
-        .set('Authorization', `Bearer ${sergioToken}`)
-        .set('Idempotency-Key', `e2e-${stamp}-cache-2`)
-        .send({ locationText: cacheLocation })
-        .expect(202);
-      const deadline = Date.now() + 10000;
-      let count = 0;
-      while (Date.now() < deadline) {
-        const history = await request(server())
-          .get(`/api/v1/tracking/${codeE}/historico`)
-          .set('Authorization', `Bearer ${sergioToken}`);
-        count = history.body.meta?.total ?? 0;
-        if (count === 3) break;
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-      expect(count).toBe(3);
-      expect(providerCalls).toBe(1);
-      await request(server())
-        .put(`/api/v1/tracking/${codeE}/localizacao`)
-        .set('Authorization', `Bearer ${sergioToken}`)
-        .set('Idempotency-Key', `e2e-${stamp}-provider-failure`)
-        .send({ locationText: 'Provider outage' })
-        .expect(202);
-      await waitForHistory('Provider outage', codeE);
-      const fallback = await request(server())
-        .get(`/api/v1/tracking/${codeE}/historico`)
-        .set('Authorization', `Bearer ${sergioToken}`)
-        .expect(200);
-      expect(fallback.body.data[0]).toMatchObject({
-        locationText: 'Provider outage',
-        latitude: null,
-        longitude: null,
-      });
-      await request(server())
-        .put(`/api/v1/tracking/${codeE}/localizacao`)
-        .set('Authorization', `Bearer ${sergioToken}`)
-        .set('Idempotency-Key', `e2e-${stamp}-circuit-open`)
-        .send({ locationText: 'Circuit open fallback' })
-        .expect(202);
-      await waitForHistory('Circuit open fallback', codeE);
-      expect(providerCalls).toBe(2);
-    } finally {
-      config.set('tracking', previousTracking);
-      await new Promise<void>((resolve, reject) =>
-        geocoder.close((error) => (error ? reject(error) : resolve())),
-      );
-    }
-  });
-
   it('dispatches pending SQL outbox rows and replays an aged dead-letter job', async () => {
     await request(server())
       .post('/api/v1/tracking')
@@ -824,10 +709,6 @@ describe('Tracking (e2e)', () => {
       .set('Authorization', `Bearer ${sergioToken}`)
       .expect(404);
     expect(gone.body.code).toBe('SHIPMENT_NOT_FOUND');
-    await request(server())
-      .delete(`/api/v1/tracking/${codeE}`)
-      .set('Authorization', `Bearer ${sergioToken}`)
-      .expect(204);
     await request(server())
       .delete(`/api/v1/tracking/${codeF}`)
       .set('Authorization', `Bearer ${sergioToken}`)

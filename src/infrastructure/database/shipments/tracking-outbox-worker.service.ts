@@ -7,13 +7,14 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectBullBoard, type BullBoardInstance } from '@bull-board/nestjs';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { rmSync, writeFileSync } from 'node:fs';
 import { Job, Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { assertTransition } from '../../../domain/shipments/shipment.entity.js';
 import type { AppConfig, TrackingConfig } from '../../config/configuration.js';
 import { PrismaService } from '../prisma.service.js';
+import { TrackingGeocoder } from './tracking-geocoder.js';
 
 interface TrackingPayload {
   status: string;
@@ -34,6 +35,7 @@ export class TrackingOutboxWorkerService
 {
   private readonly logger = new Logger(TrackingOutboxWorkerService.name);
   private redis?: Redis;
+  private geocoder?: TrackingGeocoder;
   private queue?: Queue;
   private deadQueue?: Queue;
   private worker?: Worker;
@@ -70,6 +72,10 @@ export class TrackingOutboxWorkerService
       lazyConnect: true,
     });
     await this.redis.connect();
+    this.geocoder = new TrackingGeocoder(
+      this.redis,
+      () => this.tracking.geocoder,
+    );
     const connection = {
       host,
       port: tracking.redis.port,
@@ -269,7 +275,7 @@ export class TrackingOutboxWorkerService
     );
     try {
       const payload = JSON.parse(outbox.payload) as TrackingPayload;
-      const location = await this.resolveLocation(payload);
+      const location = await this.geocoder!.resolveLocation(payload);
       await this.prisma.$transaction(
         async (tx) => {
           const claimed = await tx.trackingOutbox.updateMany({
@@ -327,126 +333,6 @@ export class TrackingOutboxWorkerService
         lockKey,
         lockToken,
       );
-    }
-  }
-
-  private async resolveLocation(
-    payload: TrackingPayload,
-  ): Promise<Pick<TrackingPayload, 'locationText' | 'latitude' | 'longitude'>> {
-    if (payload.latitude !== null && payload.longitude !== null) return payload;
-    const geocoder = this.tracking.geocoder;
-    const endpoint = geocoder.url;
-    if (!endpoint) return payload;
-    const cooldown = geocoder.circuitCooldownMs;
-    const cacheKey = `tracking:geocode:${createHash('sha256').update(`${endpoint}:${payload.locationText.toLowerCase().trim()}`).digest('hex')}`;
-    const cached = await this.redis!.get(cacheKey);
-    if (cached)
-      return {
-        ...payload,
-        ...(JSON.parse(cached) as { latitude: number; longitude: number }),
-      };
-    const circuitKey = 'tracking:geocode:circuit:open';
-    if (await this.redis!.get(circuitKey)) return payload;
-    const halfOpenKey = 'tracking:geocode:circuit:half-open';
-    const hasOpenedBefore = await this.redis!.get(
-      'tracking:geocode:circuit:ever-opened',
-    );
-    let isProbe = false;
-    if (hasOpenedBefore) {
-      const halfOpen = await this.redis!.set(
-        halfOpenKey,
-        randomUUID(),
-        'PX',
-        geocoder.timeoutMs + 1000,
-        'NX',
-      );
-      if (halfOpen !== 'OK') return payload;
-      isProbe = true;
-    }
-    const failuresKey = 'tracking:geocode:circuit:failures';
-    try {
-      await this.waitForGeocodeSlot();
-      const url = new URL(endpoint);
-      url.searchParams.set('q', payload.locationText);
-      url.searchParams.set('format', 'json');
-      url.searchParams.set('limit', '1');
-      const headers: Record<string, string> = {
-        'User-Agent': geocoder.userAgent,
-      };
-      if (geocoder.apiKey) headers.Authorization = `Bearer ${geocoder.apiKey}`;
-      const response = await fetch(url, {
-        headers,
-        signal: AbortSignal.timeout(geocoder.timeoutMs),
-      });
-      if (!response.ok) throw new Error(`Geocoder returned ${response.status}`);
-      const results = (await response.json()) as Array<{
-        lat: string;
-        lon: string;
-      }>;
-      await this.redis!.del(
-        failuresKey,
-        circuitKey,
-        halfOpenKey,
-        'tracking:geocode:circuit:ever-opened',
-      );
-      const first = results[0];
-      if (!first) return payload;
-      const coordinates = {
-        latitude: Number(first.lat),
-        longitude: Number(first.lon),
-      };
-      if (
-        !Number.isFinite(coordinates.latitude) ||
-        !Number.isFinite(coordinates.longitude) ||
-        coordinates.latitude < -90 ||
-        coordinates.latitude > 90 ||
-        coordinates.longitude < -180 ||
-        coordinates.longitude > 180
-      )
-        return payload;
-      await this.redis!.set(
-        cacheKey,
-        JSON.stringify(coordinates),
-        'EX',
-        geocoder.cacheTtlSeconds,
-      );
-      return { ...payload, ...coordinates };
-    } catch (error) {
-      const failures = await this.redis!.incr(failuresKey);
-      if (failures === 1) await this.redis!.pexpire(failuresKey, cooldown);
-      if (failures >= geocoder.circuitFailures || isProbe) {
-        await this.redis!.set(circuitKey, 'open', 'PX', cooldown);
-        await this.redis!.set('tracking:geocode:circuit:ever-opened', '1');
-        await this.redis!.del(failuresKey);
-      }
-      if (isProbe) await this.redis!.del(halfOpenKey);
-      this.logger.warn(
-        `Geocoder unavailable; retaining textual location: ${String(error)}`,
-      );
-      return payload;
-    }
-  }
-
-  private async waitForGeocodeSlot(): Promise<void> {
-    const windowMs = 1000;
-    const maxRequests = Math.max(1, this.tracking.geocoder.rateLimit);
-    const key = 'tracking:geocode:rate-limit';
-    const script =
-      "local now=tonumber(ARGV[1]); local window=tonumber(ARGV[2]); local limit=tonumber(ARGV[3]); redis.call('ZREMRANGEBYSCORE',KEYS[1],'-inf',now-window); local count=redis.call('ZCARD',KEYS[1]); if count < limit then redis.call('ZADD',KEYS[1],now,ARGV[4]); redis.call('PEXPIRE',KEYS[1],window); return 0 end; local first=redis.call('ZRANGE',KEYS[1],0,0,'WITHSCORES'); return tonumber(first[2])+window-now";
-    while (true) {
-      const waitMs = Number(
-        await this.redis!.eval(
-          script,
-          1,
-          key,
-          Date.now(),
-          windowMs,
-          maxRequests,
-          randomUUID(),
-        ),
-      );
-      if (waitMs <= 0) return;
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
   }
 

@@ -58,6 +58,7 @@ Dentro de cada camada, os arquivos são agrupados por **recurso de negócio** (`
 ```
 src/
   main.ts                    # bootstrap HTTP, Swagger, pipes globais
+  worker.ts                  # bootstrap do processo BullMQ sem servidor HTTP
   app.module.ts              # composition root
   application/               # pastas por feature; código transversal em shared/
     customers/
@@ -111,18 +112,26 @@ src/
 
 ## Ingestão assíncrona de tracking
 
-As rotas de status e localização validam a entrada e gravam o JSON original no outbox SQL antes de responder 202. O dispatcher publica jobs BullMQ com ID determinístico e reconcilia jobs ausentes no Redis; por isso, o SQL é a fonte de recuperação. O worker consome em processo separado (`node dist/worker.js`), serializa por carga com lock Redis e conclui evento, estado atual e marcação do outbox em uma única transação. Jobs usam retry exponencial com jitter e seguem para a DLQ após 24 horas. A integração HTTP de geocodificação fica na infraestrutura.
+`main.ts` inicia o servidor HTTP, enquanto `worker.ts` cria um contexto Nest sem abrir uma porta HTTP. Os dois processos carregam o mesmo `AppModule`; o provider `TrackingOutboxWorkerService` ativa suas funções conforme as variáveis de ambiente. Em desenvolvimento, as duas funções podem rodar no processo da API. Em produção, a API despacha e o Deployment separado consome os jobs.
+
+1. As rotas de status e localização validam a entrada, gravam o evento bruto em `tracking_outbox` na mesma transação SQL e respondem `202 Accepted`.
+2. Com `TRACKING_DISPATCHER_ROLE=true`, o dispatcher consulta o outbox em lotes, publica jobs BullMQ cujo ID é o UUID do registro e atualiza `dispatchedAt`. Ele reconcilia jobs ausentes no Redis usando o SQL como fonte durável.
+3. Com `TRACKING_WORKER_ROLE=true`, o consumidor processa a fila principal e a DLQ. Para cada carga, obtém um lock Redis com expiração renovável. Uma transação serializável reivindica o outbox, grava `shipment_events`, atualiza o status da carga somente quando o evento não é anterior ao mais recente e marca o outbox como processado.
+4. Falhas recebem retentativas com backoff exponencial e jitter. Após a janela configurada (24 horas por padrão), o job segue para a DLQ, que tenta o replay de forma limitada por taxa.
+
+`TRACKING_QUEUE_ENABLED=true` habilita a conexão Redis. No processo da API, use `TRACKING_WORKER_ROLE=false` e `TRACKING_DISPATCHER_ROLE=true`; no processo worker, use `TRACKING_WORKER_ROLE=true` e `TRACKING_DISPATCHER_ROLE=false`. No `.env.example`, ambos estão habilitados para permitir execução combinada em desenvolvimento. O worker resolve coordenadas na infraestrutura com cache Redis, rate limit e circuit breaker; se o provedor falhar, mantém o texto original da localização no histórico e conclui o evento sem coordenadas.
+
 - MSSQL não tem `enum` nativo — validar em domínio, persistir como `String`.
 
 ## Testes
 
 Runner: **Vitest** (`vitest.config.ts`; o e2e usa `vitest.config.e2e.ts` separado e precisa do banco no ar). Lint: **oxlint** type-aware (`npm run lint`).
 
-| Tipo | O que cobre | Onde |
-| --- | --- | --- |
-| Unit | use-cases com ports falsas (sem Nest) | `src/**/*.spec.ts` |
+| Tipo        | O que cobre                                | Onde                        |
+| ----------- | ------------------------------------------ | --------------------------- |
+| Unit        | use-cases com ports falsas (sem Nest)      | `src/**/*.spec.ts`          |
 | Arquitetura | proibição de imports que cruzam fronteiras | `test/architecture.spec.ts` |
-| E2E | request HTTP real contra AppModule | `test/*.e2e-spec.ts` |
+| E2E         | request HTTP real contra AppModule         | `test/*.e2e-spec.ts`        |
 
 ## Swagger
 

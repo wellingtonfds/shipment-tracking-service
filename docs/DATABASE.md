@@ -83,7 +83,28 @@ erDiagram
         int createdById FK "NULL, SetNull"
         datetime createdAt
     }
+    TrackingOutbox {
+        string id PK "UUID do job BullMQ"
+        int shipmentId "referencia logica, sem FK"
+        string eventType "STATUS | LOCATION"
+        string payload "JSON bruto"
+        datetime createdAt
+        datetime dispatchedAt "NULL ate publicar"
+        datetime processedAt "NULL ate concluir"
+        int attempts
+    }
+    TrackingIdempotencyKey {
+        string id PK
+        int shipmentId "referencia logica, sem FK"
+        string key
+        string payloadHash "SHA-256"
+        string outboxId "referencia logica, sem FK"
+        datetime createdAt
+        datetime expiresAt
+    }
 ```
+
+`TrackingOutbox.shipmentId`, `TrackingIdempotencyKey.shipmentId` e `TrackingIdempotencyKey.outboxId` são referências lógicas. O schema não declara FKs entre essas tabelas e `Shipment`/`TrackingOutbox`.
 
 ## Relacionamentos
 
@@ -201,4 +222,27 @@ Evolução futura, simétrica ao split: job/script com `SWITCH` da partição ma
 
 ## Outbox e idempotência de tracking
 
-`tracking_outbox.payload` preserva a ocorrência bruta até o worker concluir a transação que grava `shipment_events` e, para status, atualiza `shipments`. O job usa `tracking_outbox.id` como ID BullMQ, permitindo republicação após falha do dispatcher. `tracking_idempotency_keys` guarda o hash do corpo normalizado de localização por cinco anos; uma rotina horária remove registros expirados. Os índices do outbox atendem o despacho pendente e a validação serializada de transições ainda não processadas.
+Essas tabelas implementam a entrega durável entre a API, SQL Server, Redis/BullMQ e o worker. A API cria o outbox na mesma transação da aceitação da solicitação; respostas `202` significam que o evento foi aceito para processamento, não que o histórico já foi atualizado.
+
+### `tracking_outbox` (`TrackingOutbox`)
+
+Armazena cada solicitação bruta até o worker concluir seu processamento. `id` é UUID e também o ID determinístico do job BullMQ, permitindo que o dispatcher reconcilie entregas ausentes no Redis.
+
+| Coluna         | Uso                                                                  |
+| -------------- | -------------------------------------------------------------------- |
+| `id`           | Chave primária UUID e identificador do job.                          |
+| `shipmentId`   | Carga associada; referência lógica, sem FK declarada.                |
+| `eventType`    | Tipo de evento (`STATUS` ou `LOCATION`).                             |
+| `payload`      | JSON bruto necessário para processar a ocorrência.                   |
+| `createdAt`    | Momento de criação do registro.                                      |
+| `dispatchedAt` | Última publicação/reconciliação no BullMQ; `NULL` enquanto pendente. |
+| `processedAt`  | Conclusão do evento; `NULL` enquanto não processado.                 |
+| `attempts`     | Contador de tentativas de despacho.                                  |
+
+Índices: `(dispatchedAt, createdAt)` localiza itens pendentes de despacho; `(shipmentId, eventType, processedAt, createdAt DESC)` apoia a validação serializada de transições não processadas. O processamento grava `shipment_events`, atualiza o estado atual quando a ocorrência é a mais recente e marca `processedAt` na mesma transação serializável.
+
+### `tracking_idempotency_keys` (`TrackingIdempotencyKey`)
+
+Guarda a chave de idempotência das solicitações de localização e o hash SHA-256 do corpo normalizado. A restrição única `(shipmentId, key)` impede reutilização da mesma chave para a mesma carga; `outboxId` aponta logicamente para a aceitação original, sem FK declarada. Repetir a chave e o mesmo conteúdo retorna a aceitação original; conteúdo diferente resulta em conflito.
+
+As chaves expiram após cinco anos. Uma rotina do worker remove registros com `expiresAt` vencido a cada hora. Índices: unicidade em `(shipmentId, key)` para deduplicação e índice em `expiresAt` para a limpeza periódica.

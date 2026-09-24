@@ -206,6 +206,49 @@ describe('TrackingOutboxWorkerService', () => {
     expect(tx.shipment.update).not.toHaveBeenCalled();
   });
 
+  it('preserves existing coordinates without calling the geocoder', async () => {
+    const { worker, prisma, tx, geocoder } = harness();
+    prisma.trackingOutbox.findUnique.mockResolvedValue({
+      ...outbox,
+      payload: JSON.stringify({
+        ...JSON.parse(outbox.payload),
+        latitude: -30.0346,
+        longitude: -51.2177,
+      }),
+    });
+
+    await worker['processJob']({ data: { outboxId: 'outbox-1' } } as Job<{
+      outboxId: string;
+    }>);
+
+    expect(geocoder.geocode).not.toHaveBeenCalled();
+    expect(tx.shipmentEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        locationText: 'Porto Alegre',
+        latitude: -30.0346,
+        longitude: -51.2177,
+      }),
+    });
+  });
+
+  it('preserves the textual location and null coordinates when geocoding fails', async () => {
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    const { worker, tx, geocoder } = harness();
+    geocoder.geocode.mockRejectedValue(new Error('provider unavailable'));
+
+    await worker['processJob']({ data: { outboxId: 'outbox-1' } } as Job<{
+      outboxId: string;
+    }>);
+
+    expect(tx.shipmentEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        locationText: 'Porto Alegre',
+        latitude: null,
+        longitude: null,
+      }),
+    });
+  });
+
   it('records the delivery timestamp when a transfer is delivered', async () => {
     const { worker, prisma, tx } = harness();
     tx.shipment.findUnique.mockResolvedValue({ id: 7, status: 'TRANSFERRED' });

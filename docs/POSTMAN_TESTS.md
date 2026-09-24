@@ -1,104 +1,58 @@
-# Testes de API no Postman — Collection de Customers
+# Collections Postman — Customers e Tracking
 
-Collection: [`postman/Customers.postman_collection.json`](../postman/Customers.postman_collection.json)
+As collections [`Customers`](../postman/Customers.postman_collection.json) e [`Tracking`](../postman/Tracking.postman_collection.json) executam isoladamente. A ordem interna dos requests importa. Elas cobrem os efeitos visíveis pela API; cenários que inspecionam Prisma, Redis, BullMQ e geocoder simulado permanecem nos testes E2E.
 
-Cobre o CRUD completo de `customers` (`GET` listar/detalhar, `POST` criar, `PUT` atualizar, `DELETE` remover). Rotas e campos em inglês (`/customers`, `name/phone/address`) — ver regra English-only em `docs/DOMAIN_RULES.md`. **mais dois cenários de erro** (404 inexistente, 409 email duplicado), com asserções automáticas em cada request.
-
-## 1. Importar a collection
-
-1. Abra o Postman → **Import** → arraste o arquivo `postman/Customers.postman_collection.json` (ou **File → Import**).
-2. A collection vem com uma variável de ambiente da própria collection:
-   - `baseUrl` — default `http://localhost:3000/api/v1` (troque se o app rodar em outra porta/host).
-   - `customerId` / `generatedEmail` — preenchidos automaticamente pelos scripts de teste do `POST` (não edite à mão).
-
-## 2. Subir a API
+## Preparo
 
 ```bash
-docker compose up -d      # MSSQL
-npm run db:migrate        # aplica migrations + gera client
-npm run db:seed           # massa inicial (15 customers)
-npm run start:dev         # http://localhost:3000/api/v1
+nvm use
+npm ci
+cp .env.example .env  # na primeira execução: configure MSSQL_SA_PASSWORD, DATABASE_URL e JWT_SECRET
+docker compose up -d
+npm run db:migrate
+npm run db:seed
+npm run start:dev
 ```
 
-## 3. Dados realistas com o Faker (variáveis dinâmicas)
+Use um segundo terminal para rodar Newman. O seed fornece o administrador, dois operadores de clientes diferentes e uma carga de outro cliente usada no teste de isolamento. A API precisa estar com `TRACKING_QUEUE_ENABLED=true` e `TRACKING_WORKER_ROLE=true` para o histórico assíncrono ser processado. O runner lê `PORT` e `API_PREFIX` do `.env` e monta `baseUrl` com `127.0.0.1`.
 
-Os bodies dos requests usam as **variáveis dinâmicas nativas do Postman** (Faker embutido, sem extensão e sem script). Cada execução gera valores novos e plausíveis:
+```bash
+npm run postman:customers
+npm run postman:tracking
+npm run postman:all
+```
 
-| Campo | Variável | Exemplo gerado |
+Também é possível importar cada JSON no Postman e executar pelo Collection Runner. Defina as variáveis de ambiente abaixo no Postman. Newman as recebe automaticamente do runner npm.
+
+| Variável | Valor padrão do runner | Uso |
 | --- | --- | --- |
-| name | `{{$randomFullName}}` | `Marcus Viana Rezende` |
-| email | `{{$randomEmail}}` | `marcus.rezende@example.net` |
-| phone | `{{$randomPhoneNumber}}` | `(27) 98123-4567` |
-| address | `{{$randomStreetAddress}}` | `2759 Crossroad, apto 12` |
+| `baseUrl` | `http://127.0.0.1:3000/api/v1` | URL da API; deriva de `PORT` e `API_PREFIX` |
+| `adminEmail` | `admin@logistica.com` | Administrador do seed |
+| `operatorEmail` | `sergio.nogueira@logistica.com` | Operador do primeiro cliente |
+| `otherOperatorEmail` | `tania.mendes@logistica.com` | Operador de outro cliente |
+| `seedPassword` | `Senha123!` | Senha local do seed |
 
-Exemplo do body do `Create customer`:
+Para outro seed, use `POSTMAN_ADMIN_EMAIL`, `POSTMAN_OPERATOR_EMAIL`, `POSTMAN_OTHER_OPERATOR_EMAIL` e `POSTMAN_SEED_PASSWORD` no ambiente do shell ou `.env`. Não versione credenciais reais. Tokens, IDs e dados gerados são variáveis **de collection**, portanto não transitam entre Customers e Tracking.
 
-```json
-{
-  "name": "{{$randomFullName}}",
-  "email": "{{$randomEmail}}",
-  "phone": "{{$randomPhoneNumber}}",
-  "address": "{{$randomStreetAddress}}"
-}
-```
+## Dados e cobertura
 
-Isso é essencial para o fluxo: o `POST` cria um customer **diferente a cada run** e os requests seguintes (detalhar/atualizar/remover) operam sobre o `id` que ele criou.
+O script de criação de Customers resolve `{{$randomFullName}}`, `{{$randomEmail}}`, `{{$randomPhoneNumber}}` e `{{$randomStreetAddress}}` uma vez por execução e reutiliza o email na prova de duplicidade. Tracking resolve `{{$randomCity}}` e `{{$randomInt}}` uma vez para compor as cidades e os códigos da carga. As datas são calculadas a partir da hora da execução, evitando dados vencidos.
 
-## 4. Scripts de teste (aba `Tests`)
+Customers verifica login, acesso anônimo e de operador negados, lista, criação, detalhe, email duplicado, validação, atualização e remoção. Tracking verifica criação e código duplicado, datas e corpo inválidos, normalização de status, transição inválida, histórico, filtros combinados, ordenação, paginação, consulta por status e isolamento entre clientes em leitura e atualização.
 
-Cada request tem asserções no script `Tests`. Visão geral:
+As verificações de histórico repetem a leitura até o worker registrar a ocorrência, com limite de 15 segundos. O cenário de concorrência envia duas atualizações de status para uma carga nova ao mesmo tempo. Respostas `202` são contadas e cada atualização aceita deve aparecer exatamente uma vez no histórico. Uma transição rejeitada com `409` ou `422` não gera ocorrência.
 
-| Request | Asserções principais |
+As collections removem as cargas e o cliente que criam. Em caso de interrupção antes dos últimos requests, use o código/ID mostrados no resultado do Newman para removê-los com o token apropriado, ou limpe os dados de desenvolvimento por seu procedimento local. O seed e suas cargas não são removidos.
+
+## Glossário PT→EN
+
+| Português | Código e API |
 | --- | --- |
-| List customers | 200; tempo < 1000ms; `data` é array; `meta` de paginação; chaves `id/name/email/phone/address/createdAt/updatedAt` |
-| Create customer | 201; tempo < 1000ms; `id` numérico; email contém `@`; salva `customerId` e `generatedEmail` em variáveis de collection |
-| Get customer | 200; `id` e `email` iguais aos criados |
-| Update customer | 200; email não foi alterado; `updatedAt >= createdAt` |
-| Delete customer | 204 sem corpo; refaz o `GET` via `pm.sendRequest` e espera 404 |
-| Get missing | 404 com `code: CUSTOMER_NOT_FOUND` |
-| Duplicate email | 409 com `code: CUSTOMER_EMAIL_IN_USE` |
-
-Exemplo de script (salvando o id para os próximos requests):
-
-```js
-pm.test('customer created with id', () => pm.expect(pm.response.json().id).to.be.a('number'));
-pm.collectionVariables.set('customerId', pm.response.json().id);
-```
-
-## 5. Rodar com o Collection Runner
-
-1. Selecione a collection → **Run** (Collection Runner).
-2. Deixe marcado **"Save responses"** e a ordem padrão dos requests.
-3. Clique **Run Customers**.
-
-A ordem importa porque há estado compartilhado:
-
-```
-Listar → Criar → Detalhar → Atualizar → Remover → (erros) Detalhar 404 → Duplicado 409
-```
-
-- `Get/Update/Delete` dependem do `{{customerId}}` criado no `POST`.
-- Os dois cenários de erro dependem de `{{generatedEmail}}` (o "duplicado" reusa o email do POST desta execução — por isso ele é 409 garantido).
-
-Resultado esperado: **7/7 requests verdes**.
-
-## 6. Alternativa: Newman (CLI)
-
-```bash
-npm install -g newman
-newman run postman/Customers.postman_collection.json \
-  -e postman/environment.json \   # opcional: baseUrl customizado
-  --reporters cli,junit
-```
-
-Ou direto apontando o env inline:
-
-```bash
-newman run postman/Customers.postman_collection.json --global-var baseUrl=http://localhost:3000/api/v1
-```
-
-Útil para CI — mesma ordem e mesmas asserções do Runner.
-
-## 7. Swagger
-
-A spec OpenAPI viva (mesma forma dos DTOs desta collection) fica em `http://localhost:3000/docs` (spec JSON: `/docs-json`) — dá para importar `docs-json` no Postman como alternativa à collection versionada.
+| Cliente | `Customer`, rota `/clientes` |
+| Carga | `Shipment`, rota `/tracking` |
+| Código de carga | `cargoCode`, parâmetro `codigoCarga` |
+| Operador | `User` com role `OPERATOR`, rota `/operadores` |
+| Histórico / ocorrência | `ShipmentEvent`, rota `/historico` |
+| Status | `status` |
+| Data de embarque | `departureDate`, filtro `embarqueDe`/`embarqueAte` |
+| Previsão de entrega | `estimatedDeliveryDate`, filtro `entregaDe`/`entregaAte` |

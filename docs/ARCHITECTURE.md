@@ -133,7 +133,9 @@ Runner: **Vitest** (`vitest.config.ts`; o e2e usa `vitest.config.e2e.ts` separad
 | Arquitetura | proibição de imports que cruzam fronteiras | `test/architecture.spec.ts` |
 | E2E         | request HTTP real contra AppModule         | `test/*.e2e-spec.ts`        |
 
-`npm run test:cov` e `npm run test:ci` medem o código autoral de `src/`, incluindo `src/infrastructure`, e exigem no mínimo 70% de statements. O client Prisma gerado (`src/generated/**`), os arquivos de teste e os DTOs de tracking `mark-shipment-delivered`, `update-shipment-location`, `update-shipment-status`, `add-shipment-event` e `create-shipment` não entram no denominador; os DTOs continuam nos contratos HTTP.
+`npm run test:cov` e `npm run test:ci` medem o código autoral de `src/`, incluindo `src/infrastructure`, e exigem no mínimo 70% de statements. O client Prisma gerado (`src/generated/**`), as declarações `.d.ts`, os arquivos de teste e os DTOs de tracking `mark-shipment-delivered`, `update-shipment-location`, `update-shipment-status`, `add-shipment-event` e `create-shipment` não entram no denominador; os DTOs continuam nos contratos HTTP.
+
+Em pull requests para `main`, o job `Tests` também exige 70% de cobertura agregada das linhas executáveis adicionadas ou alteradas. A comparação usa o commit base do PR e o relatório LCOV; mudanças sem linhas executáveis não afetam essa métrica. O limite global de statements continua aplicado em PRs e pushes para `main`.
 
 ## Swagger
 

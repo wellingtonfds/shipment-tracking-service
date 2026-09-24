@@ -85,6 +85,7 @@ O workflow `.github/workflows/ci.yml` roda em pull requests e pushes para `main`
 
 - lint com oxlint type-aware;
 - testes unitários e de arquitetura com relatório JUnit e cobertura;
+- bloqueio de PRs quando menos de 70% das linhas executáveis adicionadas ou alteradas estiverem cobertas (`npm run coverage:diff -- <sha-base>` após `npm run test:ci`);
 - build da imagem Docker após lint e testes passarem.
 
 Os relatórios JUnit e de cobertura ficam disponíveis como artefatos da execução por 14 dias. A imagem é apenas validada no CI e não é publicada em registry.

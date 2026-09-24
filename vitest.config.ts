@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import tsconfigPaths from 'vite-tsconfig-paths';
+import { coverageExclude } from './scripts/coverage-policy.js';
 
 export default defineConfig({
   // Resolves the path aliases declared in tsconfig.json, including the ones
@@ -11,15 +12,7 @@ export default defineConfig({
     include: ['**/*.spec.ts'],
     coverage: {
       include: ['src/**/*.ts'],
-      exclude: [
-        'src/generated/**',
-        'src/**/*.spec.ts',
-        'src/infrastructure/http/tracking/dtos/mark-shipment-delivered.dto.ts',
-        'src/infrastructure/http/tracking/dtos/update-shipment-location.dto.ts',
-        'src/infrastructure/http/tracking/dtos/update-shipment-status.dto.ts',
-        'src/infrastructure/http/tracking/dtos/add-shipment-event.dto.ts',
-        'src/infrastructure/http/tracking/dtos/create-shipment.dto.ts',
-      ],
+      exclude: coverageExclude,
       thresholds: { statements: 70 },
     },
   },

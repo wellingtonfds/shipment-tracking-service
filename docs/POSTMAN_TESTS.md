@@ -14,14 +14,14 @@ npm run db:seed
 npm run start:dev
 ```
 
-Use outro terminal para executar a collection. Instale Newman separadamente (por exemplo, `npm install --global newman`) ou use o aplicativo Postman. A API precisa estar com `TRACKING_QUEUE_ENABLED=true` e `TRACKING_WORKER_ROLE=true` para processar o histórico assíncrono.
+Use outro terminal para executar a collection. `npm ci` instala o Newman usado pelo atalho. A API precisa estar com `TRACKING_QUEUE_ENABLED=true` e `TRACKING_WORKER_ROLE=true` para processar o histórico assíncrono.
 
 ```bash
-newman run postman/UseCases.postman_collection.json -e postman/Development.postman_environment.json
-newman run postman/UseCases.postman_collection.json -e postman/Development.postman_environment.json --folder "Tracking - History"
+npm run postman
+npm run postman -- --folder "Tracking - History"
 ```
 
-Também é possível importar os dois JSONs no Postman e executar a collection inteira ou uma pasta no Collection Runner. Se a API usar outra porta ou prefixo, altere `baseUrl` no ambiente. Os nomes das pastas são únicos para que `--folder` selecione exatamente um caso de uso.
+O atalho executa `newman run postman/UseCases.postman_collection.json -e postman/Development.postman_environment.json`; os argumentos após `--` são repassados ao Newman. Também é possível importar os dois JSONs no Postman e executar a collection inteira ou uma pasta no Collection Runner. Se a API usar outra porta ou prefixo, altere `baseUrl` no ambiente. Os nomes das pastas são únicos para que `--folder` selecione exatamente um caso de uso.
 
 ## Variáveis e dados
 

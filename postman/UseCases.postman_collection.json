@@ -1198,7 +1198,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -1209,8 +1209,8 @@
                     "exec": [
                       "const code='pm'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5);",
                       "pm.collectionVariables.set('cargoCode',code);",
-                      "pm.collectionVariables.set('originCity',pm.variables.replaceIn('{{$randomCity}}'));",
-                      "pm.collectionVariables.set('destinationCity',pm.variables.replaceIn('{{$randomCity}}'));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');",
                       "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
                       "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());"
                     ]
@@ -1222,7 +1222,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
-                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});"
+                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -1251,7 +1252,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -1289,7 +1290,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}-bad\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{estimatedDeliveryDate}}\", \"estimatedDeliveryDate\": \"{{departureDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}-bad\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{estimatedDeliveryDate}}\", \"estimatedDeliveryDate\": \"{{departureDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -1530,7 +1531,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -1541,8 +1542,8 @@
                     "exec": [
                       "const code='pm'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5);",
                       "pm.collectionVariables.set('cargoCode',code);",
-                      "pm.collectionVariables.set('originCity',pm.variables.replaceIn('{{$randomCity}}'));",
-                      "pm.collectionVariables.set('destinationCity',pm.variables.replaceIn('{{$randomCity}}'));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');",
                       "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
                       "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());"
                     ]
@@ -1554,7 +1555,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
-                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});"
+                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -1717,7 +1719,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -1728,8 +1730,8 @@
                     "exec": [
                       "const code='pm'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5);",
                       "pm.collectionVariables.set('cargoCode',code);",
-                      "pm.collectionVariables.set('originCity',pm.variables.replaceIn('{{$randomCity}}'));",
-                      "pm.collectionVariables.set('destinationCity',pm.variables.replaceIn('{{$randomCity}}'));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');",
                       "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
                       "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());"
                     ]
@@ -1741,7 +1743,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
-                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});"
+                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -1933,7 +1936,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -1944,8 +1947,8 @@
                     "exec": [
                       "const code='pm'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5);",
                       "pm.collectionVariables.set('cargoCode',code);",
-                      "pm.collectionVariables.set('originCity',pm.variables.replaceIn('{{$randomCity}}'));",
-                      "pm.collectionVariables.set('destinationCity',pm.variables.replaceIn('{{$randomCity}}'));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');",
                       "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
                       "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());"
                     ]
@@ -1957,7 +1960,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
-                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});"
+                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -1990,7 +1994,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"locationText\": \"{{locationText}}\"}"
+                  "raw": "{\"locationText\": \"{{locationText}}\", \"latitude\": -22.9056, \"longitude\": -47.0608}"
                 }
               },
               "event": [
@@ -2000,7 +2004,7 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.collectionVariables.set('locationKey', 'pm-location-' + Date.now() + '-' + pm.variables.replaceIn('{{$randomInt}}'));",
-                      "pm.collectionVariables.set('locationText', pm.variables.replaceIn('{{$randomCity}}')); "
+                      "pm.collectionVariables.set('locationText', 'Campinas, SP');"
                     ]
                   }
                 },
@@ -2011,7 +2015,8 @@
                     "exec": [
                       "pm.test('202 accepted', () => pm.response.to.have.status(202));",
                       "const result=pm.response.json();pm.test('new location event', () => { pm.expect(result.accepted).to.be.true; pm.expect(result.duplicate).to.be.false; pm.expect(result.eventId).to.be.a('string'); });",
-                      "pm.collectionVariables.set('locationEventId', result.eventId);"
+                      "pm.collectionVariables.set('locationEventId', result.eventId);",
+                      "pm.collectionVariables.set('locationAcceptedAt', Date.now());"
                     ]
                   }
                 }
@@ -2044,7 +2049,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"locationText\": \"{{locationText}}\"}"
+                  "raw": "{\"locationText\": \"{{locationText}}\", \"latitude\": -22.9056, \"longitude\": -47.0608}"
                 }
               },
               "event": [
@@ -2087,7 +2092,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"locationText\": \"Different location\"}"
+                  "raw": "{\"locationText\": \"Sorocaba, SP\", \"latitude\": -23.5015, \"longitude\": -47.4526}"
                 }
               },
               "event": [
@@ -2125,7 +2130,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"locationText\": \"{{locationText}}\"}"
+                  "raw": "{\"locationText\": \"{{locationText}}\", \"latitude\": -22.9056, \"longitude\": -47.0608}"
                 }
               },
               "event": [
@@ -2163,7 +2168,10 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "if (!pm.collectionVariables.get('waitDeadline')) pm.collectionVariables.set('waitDeadline', Date.now() + 15000);"
+                      "const acceptedAt=Number(pm.collectionVariables.get('locationAcceptedAt'));",
+                      "if (!pm.collectionVariables.get('waitDeadline')) pm.collectionVariables.set('waitDeadline', acceptedAt + 15000);",
+                      "const delay=Math.max(0,acceptedAt+2000-Date.now());",
+                      "if(delay) setTimeout(() => {}, delay);"
                     ]
                   }
                 },
@@ -2174,7 +2182,37 @@
                     "exec": [
                       "pm.test('history 200', () => pm.response.to.have.status(200));",
                       "const events=pm.response.json().data.filter(x => x.locationText === pm.collectionVariables.get('locationText'));",
-                      "if (events.length !== 1 && Date.now() < Number(pm.collectionVariables.get('waitDeadline'))) { setTimeout(() => pm.execution.setNextRequest('Wait for location history'), 250); } else { pm.test('one location event after replay', () => pm.expect(events.length).to.eql(1)); }"
+                      "if (events.length !== 1 && Date.now() < Number(pm.collectionVariables.get('waitDeadline'))) { setTimeout(() => pm.execution.setNextRequest('Wait for location history'), 1000); } else { pm.test('one location event after replay with coordinates', () => { pm.expect(events.length).to.eql(1); pm.expect(events[0].latitude).to.eql(-22.9056); pm.expect(events[0].longitude).to.eql(-47.0608); }); }"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get processed location",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/{{cargoCode}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('shipment 200', () => pm.response.to.have.status(200));",
+                      "pm.test('current location processed', () => { const b=pm.response.json(); pm.expect(b.currentLocationText).to.eql(pm.collectionVariables.get('locationText')); pm.expect(b.currentLatitude).to.eql(-22.9056); pm.expect(b.currentLongitude).to.eql(-47.0608); });"
                     ]
                   }
                 }
@@ -2203,7 +2241,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"locationText\": \"Delivered to consignee\"}"
+                  "raw": "{\"locationText\": \"Rio de Janeiro, RJ\", \"latitude\": -22.9068, \"longitude\": -43.1729}"
                 }
               },
               "event": [
@@ -2213,7 +2251,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('200 delivered', () => pm.response.to.have.status(200));",
-                      "pm.test('final shipment status', () => { const result=pm.response.json(); pm.expect(result.status).to.eql('DELIVERED'); pm.expect(result.deliveredAt).to.be.a('string'); });"
+                      "pm.test('final shipment status', () => { const result=pm.response.json(); pm.expect(result.status).to.eql('DELIVERED'); pm.expect(result.deliveredAt).to.be.a('string'); });",
+                      "pm.test('delivery coordinates', () => { const b=pm.response.json(); pm.expect(b.currentLocationText).to.eql('Rio de Janeiro, RJ'); pm.expect(b.currentLatitude).to.eql(-22.9068); pm.expect(b.currentLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -2346,7 +2385,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -2357,8 +2396,8 @@
                     "exec": [
                       "const code='pm'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5);",
                       "pm.collectionVariables.set('cargoCode',code);",
-                      "pm.collectionVariables.set('originCity',pm.variables.replaceIn('{{$randomCity}}'));",
-                      "pm.collectionVariables.set('destinationCity',pm.variables.replaceIn('{{$randomCity}}'));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');",
                       "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
                       "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());"
                     ]
@@ -2370,7 +2409,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
-                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});"
+                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -2399,7 +2439,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\": \"in_transit\", \"locationText\": \"{{checkpoint}}\"}"
+                  "raw": "{\"status\": \"in_transit\", \"locationText\": \"{{checkpoint}}\", \"latitude\": -25.4284, \"longitude\": -49.2733}"
                 }
               },
               "event": [
@@ -2408,7 +2448,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.collectionVariables.set('checkpoint',pm.variables.replaceIn('{{$randomCity}}'));"
+                      "pm.collectionVariables.set('checkpoint','Curitiba, PR');"
                     ]
                   }
                 },
@@ -2457,7 +2497,8 @@
                     "exec": [
                       "pm.test('history 200',()=>pm.response.to.have.status(200));",
                       "const b=pm.response.json();const events=b.data.filter(x=>x.locationText===pm.collectionVariables.get('checkpoint'));",
-                      "if(events.length!==1){if(Date.now()<Number(pm.collectionVariables.get('waitDeadline'))){setTimeout(() => pm.execution.setNextRequest('Wait for status update history'), 250);}else{pm.test('status event processed once',()=>pm.expect(events.length).to.eql(1));}}else{pm.test('normalized status and history',()=>{pm.expect(events[0].status).to.eql('IN_TRANSIT');pm.expect(b.data.some(x=>x.status==='CREATED')).to.be.true;});}"
+                      "if(events.length!==1){if(Date.now()<Number(pm.collectionVariables.get('waitDeadline'))){setTimeout(() => pm.execution.setNextRequest('Wait for status update history'), 250);}else{pm.test('status event processed once',()=>pm.expect(events.length).to.eql(1));}}else{pm.test('normalized status and history',()=>{pm.expect(events[0].status).to.eql('IN_TRANSIT');pm.expect(b.data.some(x=>x.status==='CREATED')).to.be.true;});}",
+                      "if(events.length===1)pm.test('status coordinates',()=>{pm.expect(events[0].latitude).to.eql(-25.4284);pm.expect(events[0].longitude).to.eql(-49.2733);});"
                     ]
                   }
                 }
@@ -2592,7 +2633,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{concurrentCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{concurrentCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -2601,7 +2642,9 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.collectionVariables.set('concurrentCode','pmc'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5));"
+                      "pm.collectionVariables.set('concurrentCode','pmc'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');"
                     ]
                   }
                 },
@@ -2610,7 +2653,8 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.test('201 concurrent shipment',()=>pm.response.to.have.status(201));"
+                      "pm.test('201 concurrent shipment',()=>pm.response.to.have.status(201));",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -2641,8 +2685,8 @@
                     "exec": [
                       "pm.test('shipment exists',()=>pm.response.to.have.status(200));",
                       "const base=pm.environment.get('baseUrl'),code=pm.collectionVariables.get('concurrentCode'),token=pm.collectionVariables.get('operatorToken');",
-                      "const names=['Concurrent A','Concurrent B'];",
-                      "const send=(status,locationText)=>new Promise((resolve,reject)=>pm.sendRequest({url:base+'/tracking/'+code+'/status',method:'PUT',header:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:{mode:'raw',raw:JSON.stringify({status,locationText})}},(error,response)=>error?reject(error):resolve({status:response.code,body:response.json(),locationText})));",
+                      "const names=['Belo Horizonte, MG - Concurrent A','Belo Horizonte, MG - Concurrent B'];",
+                      "const send=(status,locationText)=>new Promise((resolve,reject)=>pm.sendRequest({url:base+'/tracking/'+code+'/status',method:'PUT',header:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:{mode:'raw',raw:JSON.stringify({status,locationText,latitude:-19.9167,longitude:-43.9345})}},(error,response)=>error?reject(error):resolve({status:response.code,body:response.json(),locationText})));",
                       "Promise.all([send('IN_TRANSIT',names[0]),send('TRANSFERRED',names[1])]).then(results=>{pm.collectionVariables.set('concurrentAccepted',JSON.stringify(results.filter(x=>x.status===202).map(x=>x.locationText)));pm.collectionVariables.set('concurrentRejected',JSON.stringify(results.filter(x=>x.status!==202).map(x=>x.locationText)));pm.test('concurrent responses are accepted or rejected transition',()=>{results.forEach(x=>pm.expect([202,409,422]).to.include(x.status));pm.expect(results.some(x=>x.status===202)).to.be.true;});}).catch(e=>pm.test('concurrent requests completed',()=>{throw e;}));"
                     ]
                   }
@@ -2684,7 +2728,8 @@
                       "pm.test('history 200',()=>pm.response.to.have.status(200));",
                       "const b=pm.response.json(),accepted=JSON.parse(pm.collectionVariables.get('concurrentAccepted')||'[]');",
                       "const counts=accepted.map(name=>b.data.filter(x=>x.locationText===name).length);",
-                      "if(counts.some(n=>n!==1)&&Date.now()<Number(pm.collectionVariables.get('concurrentDeadline'))){setTimeout(() => pm.execution.setNextRequest('Wait for concurrent history'), 250);}else{pm.test('one occurrence per accepted status, without loss',()=>counts.forEach(n=>pm.expect(n).to.eql(1)));pm.test('rejected statuses have no occurrence',()=>JSON.parse(pm.collectionVariables.get('concurrentRejected')||'[]').forEach(name=>pm.expect(b.data.filter(x=>x.locationText===name)).to.be.empty));}"
+                      "if(counts.some(n=>n!==1)&&Date.now()<Number(pm.collectionVariables.get('concurrentDeadline'))){setTimeout(() => pm.execution.setNextRequest('Wait for concurrent history'), 250);}else{pm.test('one occurrence per accepted status, without loss',()=>counts.forEach(n=>pm.expect(n).to.eql(1)));pm.test('rejected statuses have no occurrence',()=>JSON.parse(pm.collectionVariables.get('concurrentRejected')||'[]').forEach(name=>pm.expect(b.data.filter(x=>x.locationText===name)).to.be.empty));}",
+                      "pm.test('concurrent event coordinates',()=>accepted.forEach(name=>{const event=b.data.find(x=>x.locationText===name);if(event){pm.expect(event.latitude).to.eql(-19.9167);pm.expect(event.longitude).to.eql(-43.9345);}}));"
                     ]
                   }
                 }
@@ -2846,7 +2891,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -2857,8 +2902,8 @@
                     "exec": [
                       "const code='pm'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5);",
                       "pm.collectionVariables.set('cargoCode',code);",
-                      "pm.collectionVariables.set('originCity',pm.variables.replaceIn('{{$randomCity}}'));",
-                      "pm.collectionVariables.set('destinationCity',pm.variables.replaceIn('{{$randomCity}}'));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');",
                       "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
                       "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());"
                     ]
@@ -2870,7 +2915,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
-                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});"
+                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -2899,7 +2945,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\": \"in_transit\", \"locationText\": \"{{checkpoint}}\"}"
+                  "raw": "{\"status\": \"in_transit\", \"locationText\": \"{{checkpoint}}\", \"latitude\": -25.4284, \"longitude\": -49.2733}"
                 }
               },
               "event": [
@@ -2908,7 +2954,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "pm.collectionVariables.set('checkpoint',pm.variables.replaceIn('{{$randomCity}}'));"
+                      "pm.collectionVariables.set('checkpoint','Curitiba, PR');"
                     ]
                   }
                 },
@@ -2957,7 +3003,8 @@
                     "exec": [
                       "pm.test('history 200',()=>pm.response.to.have.status(200));",
                       "const b=pm.response.json();const events=b.data.filter(x=>x.locationText===pm.collectionVariables.get('checkpoint'));",
-                      "if(events.length!==1){if(Date.now()<Number(pm.collectionVariables.get('waitDeadline'))){setTimeout(() => pm.execution.setNextRequest('Wait for first status history'), 250);}else{pm.test('status event processed once',()=>pm.expect(events.length).to.eql(1));}}else{pm.test('normalized status and history',()=>{pm.expect(events[0].status).to.eql('IN_TRANSIT');pm.expect(b.data.some(x=>x.status==='CREATED')).to.be.true;});}"
+                      "if(events.length!==1){if(Date.now()<Number(pm.collectionVariables.get('waitDeadline'))){setTimeout(() => pm.execution.setNextRequest('Wait for first status history'), 250);}else{pm.test('status event processed once',()=>pm.expect(events.length).to.eql(1));}}else{pm.test('normalized status and history',()=>{pm.expect(events[0].status).to.eql('IN_TRANSIT');pm.expect(b.data.some(x=>x.status==='CREATED')).to.be.true;});}",
+                      "if(events.length===1)pm.test('status coordinates',()=>{pm.expect(events[0].latitude).to.eql(-25.4284);pm.expect(events[0].longitude).to.eql(-49.2733);});"
                     ]
                   }
                 }
@@ -3121,7 +3168,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -3132,8 +3179,8 @@
                     "exec": [
                       "const code='pm'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5);",
                       "pm.collectionVariables.set('cargoCode',code);",
-                      "pm.collectionVariables.set('originCity',pm.variables.replaceIn('{{$randomCity}}'));",
-                      "pm.collectionVariables.set('destinationCity',pm.variables.replaceIn('{{$randomCity}}'));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');",
                       "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
                       "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());"
                     ]
@@ -3145,7 +3192,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
-                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});"
+                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -3185,7 +3233,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "const b=pm.response.json();pm.test('filters',()=>{pm.expect(b.data.some(x=>x.cargoCode===pm.collectionVariables.get('cargoCode').toUpperCase())).to.be.true;b.data.forEach(x=>{pm.expect(x.status).to.eql('CREATED');pm.expect(x.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(x.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});for(let i=1;i<b.data.length;i++)pm.expect(b.data[i].departureDate>=b.data[i-1].departureDate).to.be.true;});"
+                      "const b=pm.response.json();pm.test('filters',()=>{pm.expect(b.data.some(x=>x.cargoCode===pm.collectionVariables.get('cargoCode').toUpperCase())).to.be.true;b.data.forEach(x=>{pm.expect(x.status).to.eql('CREATED');pm.expect(x.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(x.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});for(let i=1;i<b.data.length;i++)pm.expect(b.data[i].departureDate>=b.data[i-1].departureDate).to.be.true;});",
+                      "pm.test('date windows',()=>{const from=Date.parse(pm.collectionVariables.get('departureFrom')),to=Date.parse(pm.collectionVariables.get('departureTo')),estimatedFrom=Date.parse(pm.collectionVariables.get('estimatedFrom')),estimatedTo=Date.parse(pm.collectionVariables.get('estimatedTo'));pm.response.json().data.forEach(x=>{const departure=Date.parse(x.departureDate),estimated=Date.parse(x.estimatedDeliveryDate);pm.expect(departure).to.be.at.least(from);pm.expect(departure).to.be.at.most(to);pm.expect(estimated).to.be.at.least(estimatedFrom);pm.expect(estimated).to.be.at.most(estimatedTo);});});"
                     ]
                   }
                 }
@@ -3436,7 +3485,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
                 }
               },
               "event": [
@@ -3447,8 +3496,8 @@
                     "exec": [
                       "const code='pm'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5);",
                       "pm.collectionVariables.set('cargoCode',code);",
-                      "pm.collectionVariables.set('originCity',pm.variables.replaceIn('{{$randomCity}}'));",
-                      "pm.collectionVariables.set('destinationCity',pm.variables.replaceIn('{{$randomCity}}'));",
+                      "pm.collectionVariables.set('originCity','São Paulo');",
+                      "pm.collectionVariables.set('destinationCity','Rio de Janeiro');",
                       "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
                       "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());"
                     ]
@@ -3460,7 +3509,8 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
-                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});"
+                      "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
                     ]
                   }
                 }
@@ -3523,6 +3573,555 @@
                   }
                 }
               ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "History - Global",
+      "item": [
+        {
+          "name": "Setup: login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{adminEmail}}\", \"password\": \"{{seedPassword}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "['adminToken','operatorToken','customerId','operatorId','historyCode','historyOtherCode','historyShipmentId','historyOtherShipmentId','historyEventId','historyFrom','historyTo','historyOccurredAt','historyOutsideAt'].forEach(key => pm.collectionVariables.unset(key));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const token = pm.response.json().token;",
+                  "pm.test('JWT returned', () => pm.expect(token).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('adminToken', token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup: login operator",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"{{operatorEmail}}\", \"password\": \"{{seedPassword}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const token = pm.response.json().token;",
+                  "pm.test('JWT returned', () => pm.expect(token).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('operatorToken', token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup: operator profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/operadores/me",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const b=pm.response.json();pm.collectionVariables.set('customerId',b.customer.id);pm.collectionVariables.set('operatorId',b.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create first shipment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/tracking",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"originCity\": \"São Paulo\", \"originCountry\": \"Brasil\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationCity\": \"Rio de Janeiro\", \"destinationCountry\": \"Brasil\", \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729, \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"customerId\": {{customerId}}, \"handledById\": {{operatorId}}, \"cargoCode\": \"{{historyCode}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('historyCode','pmh'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5));",
+                  "pm.collectionVariables.set('departureDate',new Date(Date.now()+86400000).toISOString());",
+                  "pm.collectionVariables.set('estimatedDeliveryDate',new Date(Date.now()+8*86400000).toISOString());",
+                  "const now=Date.now();pm.collectionVariables.set('historyOccurredAt',new Date(now-3600000).toISOString());pm.collectionVariables.set('historyOutsideAt',new Date(now-10800000).toISOString());pm.collectionVariables.set('historyFrom',new Date(now-7200000).toISOString());pm.collectionVariables.set('historyTo',new Date(now).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 shipment created',()=>pm.response.to.have.status(201));",
+                  "pm.test('created shipment and coordinates',()=>{const b=pm.response.json();pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('historyCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));pm.expect(b.originLatitude).to.eql(-23.5505);pm.expect(b.originLongitude).to.eql(-46.6333);pm.expect(b.destinationLatitude).to.eql(-22.9068);pm.expect(b.destinationLongitude).to.eql(-43.1729);});",
+                  "pm.collectionVariables.set('historyShipmentId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create second shipment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/tracking",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"originCity\": \"São Paulo\", \"originCountry\": \"Brasil\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationCity\": \"Rio de Janeiro\", \"destinationCountry\": \"Brasil\", \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729, \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"customerId\": {{customerId}}, \"handledById\": {{operatorId}}, \"cargoCode\": \"{{historyOtherCode}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('historyOtherCode','pmh'+Date.now().toString(36)+pm.variables.replaceIn('{{$randomInt}}').slice(0,5));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 shipment created',()=>pm.response.to.have.status(201));",
+                  "pm.test('created shipment and coordinates',()=>{const b=pm.response.json();pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('historyOtherCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));pm.expect(b.originLatitude).to.eql(-23.5505);pm.expect(b.originLongitude).to.eql(-46.6333);pm.expect(b.destinationLatitude).to.eql(-22.9068);pm.expect(b.destinationLongitude).to.eql(-43.1729);});",
+                  "pm.collectionVariables.set('historyOtherShipmentId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator denied global list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/historico?inicio={{historyFrom}}&fim={{historyTo}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 operator list',()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator denied manual occurrence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/historico/{{historyCode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{operatorToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"IN_TRANSIT\", \"locationText\": \"Curitiba, PR\", \"latitude\": -25.4284, \"longitude\": -49.2733, \"occurredAt\": \"{{historyOccurredAt}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 operator create',()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create target occurrence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/historico/{{historyCode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"IN_TRANSIT\", \"locationText\": \"Curitiba, PR\", \"latitude\": -25.4284, \"longitude\": -49.2733, \"occurredAt\": \"{{historyOccurredAt}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 manual occurrence',()=>pm.response.to.have.status(201));",
+                  "pm.test('manual occurrence fields',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('IN_TRANSIT');pm.expect(b.locationText).to.eql('Curitiba, PR');pm.expect(b.latitude).to.eql(-25.4284);pm.expect(b.longitude).to.eql(-49.2733);pm.expect(b.occurredAt).to.eql(pm.collectionVariables.get('historyOccurredAt'));});",
+                  "pm.collectionVariables.set('historyEventId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create other status occurrence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/historico/{{historyCode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"TRANSFERRED\", \"locationText\": \"Belo Horizonte, MG\", \"latitude\": -19.9167, \"longitude\": -43.9345, \"occurredAt\": \"{{historyOccurredAt}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 manual occurrence',()=>pm.response.to.have.status(201));",
+                  "pm.test('manual occurrence fields',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('TRANSFERRED');pm.expect(b.locationText).to.eql('Belo Horizonte, MG');pm.expect(b.latitude).to.eql(-19.9167);pm.expect(b.longitude).to.eql(-43.9345);pm.expect(b.occurredAt).to.eql(pm.collectionVariables.get('historyOccurredAt'));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create other shipment occurrence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/historico/{{historyOtherCode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"IN_TRANSIT\", \"locationText\": \"Campinas, SP\", \"latitude\": -22.9056, \"longitude\": -47.0608, \"occurredAt\": \"{{historyOccurredAt}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 manual occurrence',()=>pm.response.to.have.status(201));",
+                  "pm.test('manual occurrence fields',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('IN_TRANSIT');pm.expect(b.locationText).to.eql('Campinas, SP');pm.expect(b.latitude).to.eql(-22.9056);pm.expect(b.longitude).to.eql(-47.0608);pm.expect(b.occurredAt).to.eql(pm.collectionVariables.get('historyOccurredAt'));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create outside-window occurrence",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/historico/{{historyCode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"IN_TRANSIT\", \"locationText\": \"Sorocaba, SP\", \"latitude\": -23.5015, \"longitude\": -47.4526, \"occurredAt\": \"{{historyOutsideAt}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 manual occurrence',()=>pm.response.to.have.status(201));",
+                  "pm.test('manual occurrence fields',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('IN_TRANSIT');pm.expect(b.locationText).to.eql('Sorocaba, SP');pm.expect(b.latitude).to.eql(-23.5015);pm.expect(b.longitude).to.eql(-47.4526);pm.expect(b.occurredAt).to.eql(pm.collectionVariables.get('historyOutsideAt'));});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manual occurrence leaves current state unchanged",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/tracking/{{historyCode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('shipment 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('manual history does not move shipment',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('CREATED');pm.expect(b.currentLocationText).to.eql('São Paulo, Brasil');pm.expect(b.currentLatitude).to.eql(-23.5505);pm.expect(b.currentLongitude).to.eql(-46.6333);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Combined global history filters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/historico?status=IN_TRANSIT&idCarga={{historyShipmentId}}&inicio={{historyFrom}}&fim={{historyTo}}&page=1&limit=1",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('history 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('combined filters select only target',()=>{const b=pm.response.json(),event=b.data[0],from=Date.parse(pm.collectionVariables.get('historyFrom')),to=Date.parse(pm.collectionVariables.get('historyTo'));pm.expect(b.meta).to.include({page:1,limit:1,total:1,totalPages:1});pm.expect(b.data).to.have.length(1);pm.expect(event.id).to.eql(Number(pm.collectionVariables.get('historyEventId')));pm.expect(event.shipmentId).to.eql(Number(pm.collectionVariables.get('historyShipmentId')));pm.expect(event.status).to.eql('IN_TRANSIT');pm.expect(event.locationText).to.eql('Curitiba, PR');pm.expect(event.latitude).to.eql(-25.4284);pm.expect(event.longitude).to.eql(-49.2733);pm.expect(Date.parse(event.occurredAt)).to.be.at.least(from);pm.expect(Date.parse(event.occurredAt)).to.be.at.most(to);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete first shipment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/tracking/{{historyCode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204',()=>pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: delete second shipment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/tracking/{{historyOtherCode}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('204',()=>pm.response.to.have.status(204));"
+                ]
+              }
             }
           ]
         }

@@ -107,3 +107,16 @@ kubectl -n tracking logs deployment/tracking-worker --all-containers --tail=200
 - pods pendentes: verifique capacidade de nós, requests e distribuição por zona.
 
 Mudanças em probes, recursos, segurança, volumes, portas, comandos, Service ou segredos devem ser feitas no repositório de infraestrutura, não nesta action.
+# Observabilidade e rollout
+
+Antes de publicar esta imagem, aplique primeiro a PR de infraestrutura de
+observabilidade: ela fornece add-on, permissões, log group, filtros e alarmes. O
+backend usa somente o endpoint OTLP interno injetado pelo add-on; não configure
+endpoint OTLP público.
+
+No rollout, informe o `environment` correto no Helm values e confirme
+`OTEL_SERVICE_NAME=shipment-tracking-service` em API e worker. Após o deploy, aguarde
+alguns minutos e valide o serviço e os traces em CloudWatch Application Signals. Em
+Logs Insights, procure `application.started` e `bullmq.backlog` nas duas filas com as
+consultas de [OBSERVABILITY.md](OBSERVABILITY.md). A ausência de eventos dos alarmes
+é `notBreaching`.

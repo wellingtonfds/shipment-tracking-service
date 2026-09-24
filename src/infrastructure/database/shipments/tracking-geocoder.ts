@@ -132,10 +132,14 @@ export class TrackingGeocoder implements GeocodingPort, OnModuleDestroy {
         circuitKey,
         halfOpenKey,
         everOpenedKey,
+        providerKey,
         geocoder,
         isProbe,
       );
-      this.logger.warn(`Geocoder unavailable: ${String(error)}`);
+      this.logger.warn(
+        { component: 'tracking-geocoder', event: 'geocoder.unavailable', error: String(error) },
+        'Geocoder unavailable',
+      );
       throw new GeocodingProviderUnavailableError();
     }
   }
@@ -162,6 +166,7 @@ export class TrackingGeocoder implements GeocodingPort, OnModuleDestroy {
     circuitKey: string,
     halfOpenKey: string,
     everOpenedKey: string,
+    providerKey: string,
     geocoder: TrackingConfig['geocoder'],
     isProbe: boolean,
   ): Promise<void> {
@@ -171,12 +176,23 @@ export class TrackingGeocoder implements GeocodingPort, OnModuleDestroy {
       if (failures === 1)
         await this.redis.pexpire(failuresKey, geocoder.circuitCooldownMs);
       if (failures >= geocoder.circuitFailures || isProbe) {
-        await this.redis.set(
+        const opened = await this.redis.set(
           circuitKey,
           'open',
           'PX',
           geocoder.circuitCooldownMs,
+          'NX',
         );
+        if (opened === 'OK')
+          this.logger.error(
+            {
+              component: 'tracking-geocoder',
+              event: 'geocoder.circuit.opened',
+              providerKey,
+              cooldownMs: geocoder.circuitCooldownMs,
+            },
+            'Geocoder circuit opened',
+          );
         await this.redis.set(everOpenedKey, '1');
         await this.redis.del(failuresKey);
       }

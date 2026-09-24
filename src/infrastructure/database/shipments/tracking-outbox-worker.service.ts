@@ -11,6 +11,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { randomUUID } from 'node:crypto';
 import { rmSync, writeFileSync } from 'node:fs';
 import { Job, Queue, Worker } from 'bullmq';
+import { BullMQOtel } from 'bullmq-otel';
 import { Redis } from 'ioredis';
 import { assertTransition } from '../../../domain/shipments/shipment.entity.js';
 import type { GeocodingPort } from '../../../application/shipments/ports/geocoding.port.js';
@@ -41,6 +42,7 @@ export class TrackingOutboxWorkerService
   private dispatchTimer?: NodeJS.Timeout;
   private cleanupTimer?: NodeJS.Timeout;
   private heartbeatTimer?: NodeJS.Timeout;
+  private backlogTimer?: NodeJS.Timeout;
   private dispatching = false;
 
   constructor(
@@ -71,6 +73,12 @@ export class TrackingOutboxWorkerService
       lazyConnect: true,
     });
     await this.redis.connect();
+    this.redis.on('error', (error: Error) =>
+      this.logger.error(
+        { component: 'tracking-worker', event: 'redis.error', error: error.message },
+        'Redis connection error',
+      ),
+    );
     const connection = {
       host,
       port: tracking.redis.port,
@@ -80,6 +88,11 @@ export class TrackingOutboxWorkerService
     };
     this.queue = new Queue(tracking.queueName, {
       connection,
+      telemetry: new BullMQOtel({
+        tracerName: 'shipment-tracking.bullmq',
+        meterName: 'shipment-tracking.bullmq',
+        enableMetrics: true,
+      }),
       defaultJobOptions: {
         attempts: 1000,
         backoff: { type: 'tracking-jitter', delay: 1000 },
@@ -89,6 +102,11 @@ export class TrackingOutboxWorkerService
     });
     this.deadQueue = new Queue(tracking.deadQueueName, {
       connection,
+      telemetry: new BullMQOtel({
+        tracerName: 'shipment-tracking.bullmq',
+        meterName: 'shipment-tracking.bullmq',
+        enableMetrics: true,
+      }),
       defaultJobOptions: {
         attempts: 1000,
         backoff: {
@@ -106,6 +124,11 @@ export class TrackingOutboxWorkerService
         (job) => this.processJob(job),
         {
           connection,
+          telemetry: new BullMQOtel({
+            tracerName: 'shipment-tracking.bullmq',
+            meterName: 'shipment-tracking.bullmq',
+            enableMetrics: true,
+          }),
           concurrency: tracking.workerConcurrency,
           settings: {
             backoffStrategy: (attemptsMade: number) => {
@@ -124,6 +147,11 @@ export class TrackingOutboxWorkerService
         (job) => this.processJob(job),
         {
           connection,
+          telemetry: new BullMQOtel({
+            tracerName: 'shipment-tracking.bullmq',
+            meterName: 'shipment-tracking.bullmq',
+            enableMetrics: true,
+          }),
           concurrency: 1,
           limiter: {
             max: 1,
@@ -164,12 +192,16 @@ export class TrackingOutboxWorkerService
       60 * 60 * 1000,
     );
     this.cleanupTimer.unref();
+    this.backlogTimer = setInterval(() => void this.logBacklogs(), 60_000);
+    this.backlogTimer.unref();
+    await this.logBacklogs();
   }
 
   async onModuleDestroy(): Promise<void> {
     if (this.dispatchTimer) clearInterval(this.dispatchTimer);
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.backlogTimer) clearInterval(this.backlogTimer);
     if (this.tracking.workerRole)
       rmSync('/tmp/tracking-worker-health', { force: true });
     await Promise.all([
@@ -234,9 +266,22 @@ export class TrackingOutboxWorkerService
           where: { id: item.id, processedAt: null },
           data: { dispatchedAt: new Date(), attempts: { increment: 1 } },
         });
+        this.logger.log(
+          {
+            component: 'tracking-dispatcher',
+            event: 'tracking.dispatch.completed',
+            outboxId: item.id,
+            shipmentId: item.shipmentId,
+            queue: this.tracking.queueName,
+          },
+          'Tracking event dispatched',
+        );
       }
     } catch (error) {
-      this.logger.error(`Outbox dispatch failed: ${String(error)}`);
+      this.logger.error(
+        { component: 'tracking-dispatcher', event: 'tracking.dispatch.failed', error: String(error) },
+        'Outbox dispatch failed',
+      );
     } finally {
       this.dispatching = false;
     }
@@ -256,8 +301,17 @@ export class TrackingOutboxWorkerService
       this.tracking.lockTtlMs,
       'NX',
     );
-    if (acquired !== 'OK')
+    if (acquired !== 'OK') {
+      this.logger.warn(
+        {
+          component: 'tracking-worker',
+          event: 'tracking.lock.unavailable',
+          shipmentId: outbox.shipmentId,
+        },
+        'Shipment lock unavailable',
+      );
       throw new Error(`Shipment ${outbox.shipmentId} is currently locked`);
+    }
     const lockTtl = this.tracking.lockTtlMs;
     const renewTimer = setInterval(
       () =>
@@ -268,7 +322,15 @@ export class TrackingOutboxWorkerService
           lockToken,
           lockTtl,
         ).catch((error: unknown) =>
-          this.logger.error(`Shipment lock renewal failed: ${String(error)}`),
+          this.logger.error(
+            {
+              component: 'tracking-worker',
+              event: 'tracking.lock.renewal_failed',
+              shipmentId: outbox.shipmentId,
+              error: String(error),
+            },
+            'Shipment lock renewal failed',
+          ),
         ),
       Math.max(1000, Math.floor(lockTtl / 3)),
     );
@@ -346,7 +408,45 @@ export class TrackingOutboxWorkerService
       jobId: `dlq-${job.data.outboxId}`,
     });
     this.logger.error(
-      `Tracking event ${job.data.outboxId} moved to periodic DLQ replay after the retry window: ${String(error)}`,
+      {
+        component: 'tracking-worker',
+        event: 'tracking.dlq.enqueued',
+        outboxId: job.data.outboxId,
+        queue: this.tracking.deadQueueName,
+        error: error.message,
+      },
+      'Tracking event moved to periodic DLQ replay',
+    );
+  }
+
+  private async logBacklogs(): Promise<void> {
+    const queues = [this.queue, this.deadQueue].filter(
+      (queue): queue is Queue => queue !== undefined,
+    );
+    await Promise.all(
+      queues.map(async (queue) => {
+        try {
+          const counts = await queue.getJobCounts('waiting', 'delayed', 'failed');
+          const backlog = counts.waiting + counts.delayed + counts.failed;
+          this.logger.log(
+            {
+              component: 'tracking-queue',
+              event: 'bullmq.backlog',
+              queue: queue.name,
+              waiting: counts.waiting,
+              delayed: counts.delayed,
+              failed: counts.failed,
+              backlog,
+            },
+            'BullMQ queue backlog collected',
+          );
+        } catch (error) {
+          this.logger.error(
+            { component: 'tracking-queue', event: 'bullmq.backlog.failed', queue: queue.name, error: String(error) },
+            'BullMQ queue backlog collection failed',
+          );
+        }
+      }),
     );
   }
 

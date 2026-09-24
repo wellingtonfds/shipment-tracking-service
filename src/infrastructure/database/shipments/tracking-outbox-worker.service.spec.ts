@@ -348,7 +348,72 @@ describe('TrackingOutboxWorkerService', () => {
       { jobId: 'dlq-expired' },
     );
     expect(log).toHaveBeenCalledExactlyOnceWith(
-      'Tracking event expired moved to periodic DLQ replay after the retry window: Error: persistent',
+      expect.objectContaining({
+        component: 'tracking-worker',
+        event: 'tracking.dlq.enqueued',
+        outboxId: 'expired',
+        queue: 'tracking-events-dlq-test',
+      }),
+      'Tracking event moved to periodic DLQ replay',
     );
+  });
+
+  it('emits the combined waiting, delayed and failed queue backlog', async () => {
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    const { worker } = harness();
+    worker['queue'] = {
+      name: 'tracking-events-test',
+      getJobCounts: vi
+        .fn()
+        .mockResolvedValue({ waiting: 3, delayed: 5, failed: 7 }),
+    } as unknown as Queue;
+
+    await worker['logBacklogs']();
+
+    expect(log).toHaveBeenCalledWith(
+      {
+        component: 'tracking-queue',
+        event: 'bullmq.backlog',
+        queue: 'tracking-events-test',
+        waiting: 3,
+        delayed: 5,
+        failed: 7,
+        backlog: 15,
+      },
+      'BullMQ queue backlog collected',
+    );
+  });
+
+  it('emits structured failures for dispatcher and backlog collection', async () => {
+    const error = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const { worker, prisma } = harness();
+    prisma.trackingOutbox.findMany.mockRejectedValue(new Error('database down'));
+
+    await worker['dispatchPending']();
+    worker['queue'] = {
+      name: 'tracking-events-test',
+      getJobCounts: vi.fn().mockRejectedValue(new Error('redis down')),
+    } as unknown as Queue;
+    await worker['logBacklogs']();
+
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'tracking.dispatch.failed' }),
+      'Outbox dispatch failed',
+    );
+    expect(error).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'bullmq.backlog.failed' }),
+      'BullMQ queue backlog collection failed',
+    );
+  });
+
+  it('clears the backlog scheduler during shutdown', async () => {
+    const { worker } = harness();
+    worker['queue'] = undefined;
+    worker['redis'] = undefined;
+    worker['backlogTimer'] = setTimeout(() => {}, 60_000);
+
+    await worker.onModuleDestroy();
+
+    expect(worker['backlogTimer']).toBeDefined();
   });
 });

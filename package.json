@@ -23,6 +23,7 @@
     "test": "vitest run",
     "test:ci": "vitest run --config ./vitest.config.ci.ts --coverage",
     "coverage:diff": "node --import tsx scripts/check-diff-coverage.ts",
+    "wiki:generate": "node --import tsx scripts/generate-wiki.ts",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",

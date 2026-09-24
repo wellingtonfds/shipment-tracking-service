@@ -1,0 +1,117 @@
+name: Deploy shipment tracking workloads
+description: Updates only the ConfigMap, images, replicas, and HPAs on the infrastructure baseline.
+
+inputs:
+  namespace:
+    description: Namespace provisioned by infrastructure.
+    required: false
+    default: tracking
+  image:
+    description: Immutable image shared by the API and worker, identified by a sha256 digest.
+    required: true
+  config-map-data:
+    description: Non-secret ConfigMap data in env-file format.
+    required: true
+  config-map-name:
+    description: Runtime ConfigMap name.
+    required: false
+    default: tracking-runtime-config
+  api-deployment:
+    description: Stable API Deployment name.
+    required: false
+    default: tracking-api
+  api-container:
+    description: Stable API container name.
+    required: false
+    default: tracking-api
+  worker-deployment:
+    description: Stable worker Deployment name.
+    required: false
+    default: tracking-worker
+  worker-container:
+    description: Stable worker container name.
+    required: false
+    default: tracking-worker
+  service-name:
+    description: API Service provisioned by infrastructure.
+    required: false
+    default: tracking-api
+  target-group-binding-name:
+    description: TargetGroupBinding provisioned by infrastructure.
+    required: false
+    default: tracking-api
+  service-account-name:
+    description: ServiceAccount associated through EKS Pod Identity.
+    required: false
+    default: tracking-backend
+  secret-provider-class-name:
+    description: SecretProviderClass that synchronizes runtime secrets.
+    required: false
+    default: tracking-backend-secrets
+  api-min-replicas:
+    description: Minimum API replicas.
+    required: false
+    default: '2'
+  api-max-replicas:
+    description: Maximum API replicas.
+    required: false
+    default: '6'
+  api-cpu-target:
+    description: API CPU utilization target percentage.
+    required: false
+    default: '60'
+  worker-min-replicas:
+    description: Minimum worker replicas.
+    required: false
+    default: '2'
+  worker-max-replicas:
+    description: Maximum worker replicas.
+    required: false
+    default: '8'
+  worker-cpu-target:
+    description: Worker CPU utilization target percentage.
+    required: false
+    default: '65'
+  rollout-timeout:
+    description: Timeout for each rollout.
+    required: false
+    default: 5m
+
+outputs:
+  previous-api-image:
+    description: API image before the update, for an explicit rollback.
+    value: ${{ steps.deploy.outputs.previous-api-image }}
+  previous-worker-image:
+    description: Worker image before the update, for an explicit rollback.
+    value: ${{ steps.deploy.outputs.previous-worker-image }}
+  deployed-image:
+    description: Immutable image applied to both workloads.
+    value: ${{ steps.deploy.outputs.deployed-image }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate baseline and deploy application
+      id: deploy
+      shell: bash
+      env:
+        DEPLOY_NAMESPACE: ${{ inputs.namespace }}
+        DEPLOY_IMAGE: ${{ inputs.image }}
+        DEPLOY_CONFIG_MAP_DATA: ${{ inputs.config-map-data }}
+        DEPLOY_CONFIG_MAP_NAME: ${{ inputs.config-map-name }}
+        DEPLOY_API_DEPLOYMENT: ${{ inputs.api-deployment }}
+        DEPLOY_API_CONTAINER: ${{ inputs.api-container }}
+        DEPLOY_WORKER_DEPLOYMENT: ${{ inputs.worker-deployment }}
+        DEPLOY_WORKER_CONTAINER: ${{ inputs.worker-container }}
+        DEPLOY_SERVICE_NAME: ${{ inputs.service-name }}
+        DEPLOY_TARGET_GROUP_BINDING_NAME: ${{ inputs.target-group-binding-name }}
+        DEPLOY_SERVICE_ACCOUNT_NAME: ${{ inputs.service-account-name }}
+        DEPLOY_SECRET_PROVIDER_CLASS_NAME: ${{ inputs.secret-provider-class-name }}
+        DEPLOY_API_MIN_REPLICAS: ${{ inputs.api-min-replicas }}
+        DEPLOY_API_MAX_REPLICAS: ${{ inputs.api-max-replicas }}
+        DEPLOY_API_CPU_TARGET: ${{ inputs.api-cpu-target }}
+        DEPLOY_WORKER_MIN_REPLICAS: ${{ inputs.worker-min-replicas }}
+        DEPLOY_WORKER_MAX_REPLICAS: ${{ inputs.worker-max-replicas }}
+        DEPLOY_WORKER_CPU_TARGET: ${{ inputs.worker-cpu-target }}
+        DEPLOY_ROLLOUT_TIMEOUT: ${{ inputs.rollout-timeout }}
+      run: $GITHUB_ACTION_PATH/deploy.sh

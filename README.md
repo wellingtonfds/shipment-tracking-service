@@ -7,13 +7,14 @@ Backend NestJS com fronteiras explícitas entre **domínio**, **aplicação** e 
 
 ## Documentação
 
-| Documento | Conteúdo |
-| --- | --- |
-| [docs/PROJECT_DEFINITION.md](docs/PROJECT_DEFINITION.md) | Objetivo, stack, glossário, escopo |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Camadas, fluxo, estrutura, erros |
-| [docs/DOMAIN_RULES.md](docs/DOMAIN_RULES.md) | Regras de fronteira e proibições por camada |
-| [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) | Padrão REST, formato de erro, checklist Swagger |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Setup passo a passo e scripts |
+| Documento                                                | Conteúdo                                                  |
+| -------------------------------------------------------- | --------------------------------------------------------- |
+| [docs/PROJECT_DEFINITION.md](docs/PROJECT_DEFINITION.md) | Objetivo, stack, glossário, escopo                        |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)             | Camadas, fluxo, estrutura, erros                          |
+| [docs/DOMAIN_RULES.md](docs/DOMAIN_RULES.md)             | Regras de fronteira e proibições por camada               |
+| [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md)       | Padrão REST, formato de erro, checklist Swagger           |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)               | Setup passo a passo e scripts                             |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                 | Contrato da action, ConfigMap, escala, rollout e rollback |
 
 ## Início rápido
 

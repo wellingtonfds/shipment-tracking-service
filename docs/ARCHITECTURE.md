@@ -127,11 +127,11 @@ src/
 
 Runner: **Vitest** (`vitest.config.ts`; o e2e usa `vitest.config.e2e.ts` separado e precisa do banco no ar). Lint: **oxlint** type-aware (`npm run lint`).
 
-| Tipo        | O que cobre                                | Onde                        |
-| ----------- | ------------------------------------------ | --------------------------- |
-| Unit        | use-cases e infraestrutura com dependências simuladas (sem banco ou Redis reais) | `src/**/*.spec.ts` |
-| Arquitetura | proibição de imports que cruzam fronteiras | `test/architecture.spec.ts` |
-| E2E         | request HTTP real contra AppModule         | `test/*.e2e-spec.ts`        |
+| Tipo        | O que cobre                                                                      | Onde                        |
+| ----------- | -------------------------------------------------------------------------------- | --------------------------- |
+| Unit        | use-cases e infraestrutura com dependências simuladas (sem banco ou Redis reais) | `src/**/*.spec.ts`          |
+| Arquitetura | proibição de imports que cruzam fronteiras                                       | `test/architecture.spec.ts` |
+| E2E         | request HTTP real contra AppModule                                               | `test/*.e2e-spec.ts`        |
 
 `npm run test:cov` e `npm run test:ci` medem o código autoral de `src/`, incluindo `src/infrastructure`, e exigem no mínimo 70% de statements. O client Prisma gerado (`src/generated/**`), as declarações `.d.ts`, os arquivos de teste e os DTOs de tracking `mark-shipment-delivered`, `update-shipment-location`, `update-shipment-status`, `add-shipment-event` e `create-shipment` não entram no denominador; os DTOs continuam nos contratos HTTP.
 
@@ -140,3 +140,7 @@ Em pull requests para `main`, o job `Tests` também exige 70% de cobertura agreg
 ## Swagger
 
 Gerado em runtime (`/docs`, spec em `/docs-json`) a partir dos decorators. `DocumentBuilder` centralizado em `src/main.ts`.
+
+## Fronteira de deployment
+
+O repositório de infraestrutura mantém os templates completos da API e do worker. Este repositório não possui diretório `kubernetes/`: sua action composta altera somente o ConfigMap não secreto, a imagem imutável, os limites de escala e os HPAs sobre os nomes estáveis da baseline. O contrato, a sequência operacional e os procedimentos de rollback estão em [DEPLOYMENT.md](DEPLOYMENT.md).

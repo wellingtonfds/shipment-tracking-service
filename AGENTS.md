@@ -10,17 +10,18 @@ Instruções para qualquer agente de código trabalhando neste repositório. Est
 
 ## Índice de documentação (leia antes de modificar código)
 
-| Tema | Documento |
-| --- | --- |
-| Objetivo, stack, glossário, escopo, "como evoluir" | [docs/PROJECT_DEFINITION.md](docs/PROJECT_DEFINITION.md) |
-| Camadas, fluxo de request, composition root, estrutura de diretórios, erros, banco, testes, Swagger | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| Fronteiras por camada (proibições), consequências práticas, exemplos certo/errado | [docs/DOMAIN_RULES.md](docs/DOMAIN_RULES.md) |
-| Convenções REST, documentação Swagger obrigatória, formato de erro, checklist de endpoint | [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) |
-| Setup passo a passo, scripts, dicas MSSQL, fluxo de trabalho | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
-| Modelo de dados canônico (ER, índices, convenções) | [docs/DATABASE.md](docs/DATABASE.md) |
-| Definição de negócio do tracking (endpoints futuros, regras) | [docs/TRACKING_DEFINITION.md](docs/TRACKING_DEFINITION.md) |
-| Collection Postman de Customers: import, Faker dinâmico, Runner, Newman | [docs/POSTMAN_TESTS.md](docs/POSTMAN_TESTS.md) |
-| Graphify (uso obrigatório, update pós-pull/pós-modificação) | [docs/GRAPHIFY.md](docs/GRAPHIFY.md) |
+| Tema                                                                                                | Documento                                                  |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Objetivo, stack, glossário, escopo, "como evoluir"                                                  | [docs/PROJECT_DEFINITION.md](docs/PROJECT_DEFINITION.md)   |
+| Camadas, fluxo de request, composition root, estrutura de diretórios, erros, banco, testes, Swagger | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)               |
+| Fronteiras por camada (proibições), consequências práticas, exemplos certo/errado                   | [docs/DOMAIN_RULES.md](docs/DOMAIN_RULES.md)               |
+| Convenções REST, documentação Swagger obrigatória, formato de erro, checklist de endpoint           | [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md)         |
+| Setup passo a passo, scripts, dicas MSSQL, fluxo de trabalho                                        | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                 |
+| Entrega da aplicação, action composta, ConfigMap, imagens, HPA, rollout e rollback                  | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)                   |
+| Modelo de dados canônico (ER, índices, convenções)                                                  | [docs/DATABASE.md](docs/DATABASE.md)                       |
+| Definição de negócio do tracking (endpoints futuros, regras)                                        | [docs/TRACKING_DEFINITION.md](docs/TRACKING_DEFINITION.md) |
+| Collection Postman de Customers: import, Faker dinâmico, Runner, Newman                             | [docs/POSTMAN_TESTS.md](docs/POSTMAN_TESTS.md)             |
+| Graphify (uso obrigatório, update pós-pull/pós-modificação)                                         | [docs/GRAPHIFY.md](docs/GRAPHIFY.md)                       |
 
 ## Regras inegociáveis (resumo — detalhes nos docs acima)
 
@@ -32,6 +33,7 @@ Instruções para qualquer agente de código trabalhando neste repositório. Est
 6. **Código sempre em inglês** (identificadores, pastas, tokens, error codes, models Prisma, rotas/campos JSON, mensagens de erro/log e textos Swagger). PT-BR só em prosa de `docs/` e dados. Obrigatório definir o glossário PT→EN da feature no PR. Ver [docs/DOMAIN_RULES.md](docs/DOMAIN_RULES.md#regra-obrigatória-english-only-code).
 7. Prisma 7: `migrate dev` **não** gera o client automaticamente — rode `prisma generate` após qualquer mudança de schema (o `postinstall` também gera).
 8. Graphify é obrigatório: consulte o grafo (`graphify query/path/explain` ≡ `/graphify query/path/explain`) antes de explorar o código; atualize após `git pull` (build se `graphify-out/graph.json` não existir, senão `--update`) e após qualquer modificação de código. Ver [docs/GRAPHIFY.md](docs/GRAPHIFY.md).
+9. O backend controla apenas imagem imutável, ConfigMap não secreto, réplicas e HPA. A baseline dos pods pertence à infraestrutura. Ver [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Verificação antes de concluir qualquer tarefa
 

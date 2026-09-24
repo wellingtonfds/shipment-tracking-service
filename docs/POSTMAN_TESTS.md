@@ -1,6 +1,6 @@
-# Collections Postman — Customers e Tracking
+# Collection Postman — Customers e Tracking
 
-As collections [`Customers`](../postman/Customers.postman_collection.json) e [`Tracking`](../postman/Tracking.postman_collection.json) executam isoladamente. A ordem interna dos requests importa. Elas cobrem os efeitos visíveis pela API; cenários que inspecionam Prisma, Redis, BullMQ e geocoder simulado permanecem nos testes E2E.
+A [collection por caso de uso](../postman/UseCases.postman_collection.json) usa o [ambiente de desenvolvimento](../postman/Development.postman_environment.json). Cada pasta de caso de uso pode ser executada sozinha. A pasta `Authentication` cobre login e consulta de perfil; `Customers` contém criação, lista, detalhe, atualização e exclusão; `Tracking` contém criação, lista, detalhe, atualização de localização/entrega, atualização de status, histórico, filtros e exclusão. A ordem dos requests **dentro de cada pasta** importa.
 
 ## Preparo
 
@@ -14,35 +14,22 @@ npm run db:seed
 npm run start:dev
 ```
 
-Use um segundo terminal para rodar Newman. O seed fornece o administrador, dois operadores de clientes diferentes e uma carga de outro cliente usada no teste de isolamento. A API precisa estar com `TRACKING_QUEUE_ENABLED=true` e `TRACKING_WORKER_ROLE=true` para o histórico assíncrono ser processado. O runner lê `PORT` e `API_PREFIX` do `.env` e monta `baseUrl` com `127.0.0.1`.
+Use outro terminal para executar a collection. Instale Newman separadamente (por exemplo, `npm install --global newman`) ou use o aplicativo Postman. A API precisa estar com `TRACKING_QUEUE_ENABLED=true` e `TRACKING_WORKER_ROLE=true` para processar o histórico assíncrono.
 
 ```bash
-npm run postman:customers
-npm run postman:tracking
-npm run postman:all
+newman run postman/UseCases.postman_collection.json -e postman/Development.postman_environment.json
+newman run postman/UseCases.postman_collection.json -e postman/Development.postman_environment.json --folder "Tracking - History"
 ```
 
-Também é possível importar cada JSON no Postman e executar pelo Collection Runner. Defina as variáveis de ambiente abaixo no Postman. Newman as recebe automaticamente do runner npm.
+Também é possível importar os dois JSONs no Postman e executar a collection inteira ou uma pasta no Collection Runner. Se a API usar outra porta ou prefixo, altere `baseUrl` no ambiente. Os nomes das pastas são únicos para que `--folder` selecione exatamente um caso de uso.
 
-| Variável | Valor padrão do runner | Uso |
-| --- | --- | --- |
-| `baseUrl` | `http://127.0.0.1:3000/api/v1` | URL da API; deriva de `PORT` e `API_PREFIX` |
-| `adminEmail` | `admin@logistica.com` | Administrador do seed |
-| `operatorEmail` | `sergio.nogueira@logistica.com` | Operador do primeiro cliente |
-| `otherOperatorEmail` | `tania.mendes@logistica.com` | Operador de outro cliente |
-| `seedPassword` | `Senha123!` | Senha local do seed |
+## Variáveis e dados
 
-Para outro seed, use `POSTMAN_ADMIN_EMAIL`, `POSTMAN_OPERATOR_EMAIL`, `POSTMAN_OTHER_OPERATOR_EMAIL` e `POSTMAN_SEED_PASSWORD` no ambiente do shell ou `.env`. Não versione credenciais reais. Tokens, IDs e dados gerados são variáveis **de collection**, portanto não transitam entre Customers e Tracking.
+O ambiente versionado contém apenas `baseUrl`, os emails e a senha do **seed de desenvolvimento**. Substitua esses valores localmente para outro seed e nunca versione credenciais reais. Tokens, IDs, códigos e dados gerados ficam nas variáveis da collection. Cada pasta autentica os papéis necessários, cria os dados usados pelo caso de uso e os remove ao final. A pasta de autenticação só consulta dados do seed.
 
-## Dados e cobertura
+Os scripts usam Faker (`$randomFullName`, `$randomEmail`, `$randomPhoneNumber`, `$randomStreetAddress`, `$randomCity`, `$randomInt`) para gerar valores uma vez por cenário. As datas são calculadas a partir da execução. As verificações cobrem autorização, validação, duplicidade, paginação, filtros, isolamento entre clientes, idempotência de localização, entrega, transição de status e atualizações simultâneas. As leituras de histórico aguardam até 15 segundos para o worker registrar os eventos antes de afirmar o resultado. Os testes que inspecionam Prisma, Redis, BullMQ e geocoder simulado permanecem no E2E.
 
-O script de criação de Customers resolve `{{$randomFullName}}`, `{{$randomEmail}}`, `{{$randomPhoneNumber}}` e `{{$randomStreetAddress}}` uma vez por execução e reutiliza o email na prova de duplicidade. Tracking resolve `{{$randomCity}}` e `{{$randomInt}}` uma vez para compor as cidades e os códigos da carga. As datas são calculadas a partir da hora da execução, evitando dados vencidos.
-
-Customers verifica login, acesso anônimo e de operador negados, lista, criação, detalhe, email duplicado, validação, atualização e remoção. Tracking verifica criação e código duplicado, datas e corpo inválidos, normalização de status, transição inválida, histórico, filtros combinados, ordenação, paginação, consulta por status e isolamento entre clientes em leitura e atualização.
-
-As verificações de histórico repetem a leitura até o worker registrar a ocorrência, com limite de 15 segundos. O cenário de concorrência envia duas atualizações de status para uma carga nova ao mesmo tempo. Respostas `202` são contadas e cada atualização aceita deve aparecer exatamente uma vez no histórico. Uma transição rejeitada com `409` ou `422` não gera ocorrência.
-
-As collections removem as cargas e o cliente que criam. Em caso de interrupção antes dos últimos requests, use o código/ID mostrados no resultado do Newman para removê-los com o token apropriado, ou limpe os dados de desenvolvimento por seu procedimento local. O seed e suas cargas não são removidos.
+Se a execução for interrompida antes da limpeza, remova os dados temporários pelo código/ID exibido no resultado do Newman ou pelo seu procedimento local de limpeza de desenvolvimento. Dados do seed não são removidos.
 
 ## Glossário PT→EN
 

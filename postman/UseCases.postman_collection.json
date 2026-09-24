@@ -1176,6 +1176,76 @@
               ]
             },
             {
+              "name": "Create shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Create shipment",
               "request": {
                 "method": "POST",
@@ -1198,7 +1268,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -1223,7 +1293,77 @@
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
                       "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Duplicate cargo code - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Duplicate cargo code - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
                     ]
                   }
                 }
@@ -1252,7 +1392,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -1262,6 +1402,76 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('409 duplicate',()=>{pm.response.to.have.status(409);pm.expect(pm.response.json().code).to.eql('SHIPMENT_CARGO_CODE_IN_USE');});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Invalid dates - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Invalid dates - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
                     ]
                   }
                 }
@@ -1290,7 +1500,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}-bad\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{estimatedDeliveryDate}}\", \"estimatedDeliveryDate\": \"{{departureDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}-bad\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{estimatedDeliveryDate}}\", \"estimatedDeliveryDate\": \"{{departureDate}}\"}"
                 }
               },
               "event": [
@@ -1509,6 +1719,76 @@
               ]
             },
             {
+              "name": "Setup: create shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Setup: create shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Setup: create shipment",
               "request": {
                 "method": "POST",
@@ -1531,7 +1811,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -1556,7 +1836,7 @@
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
                       "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
                     ]
                   }
                 }
@@ -1697,6 +1977,76 @@
               ]
             },
             {
+              "name": "Setup: create shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Setup: create shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Setup: create shipment",
               "request": {
                 "method": "POST",
@@ -1719,7 +2069,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -1744,7 +2094,7 @@
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
                       "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
                     ]
                   }
                 }
@@ -1914,6 +2264,76 @@
               ]
             },
             {
+              "name": "Setup: create shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Setup: create shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Setup: create shipment",
               "request": {
                 "method": "POST",
@@ -1936,7 +2356,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -1961,7 +2381,47 @@
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
                       "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Geocode complete update address",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{updateAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('updateAddress', \"Praça da Sé, 1, Sé, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('locationText', \"Praça da Sé, 1, Sé, São Paulo, SP, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('locationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('locationLongitude',Number(coordinates.longitude.toFixed(6)));"
                     ]
                   }
                 }
@@ -1994,7 +2454,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"locationText\": \"{{locationText}}\", \"latitude\": -22.9056, \"longitude\": -47.0608}"
+                  "raw": "{\"locationText\":\"{{locationText}}\"}"
                 }
               },
               "event": [
@@ -2004,7 +2464,7 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.collectionVariables.set('locationKey', 'pm-location-' + Date.now() + '-' + pm.variables.replaceIn('{{$randomInt}}'));",
-                      "pm.collectionVariables.set('locationText', 'Campinas, SP');"
+                      ""
                     ]
                   }
                 },
@@ -2049,7 +2509,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"locationText\": \"{{locationText}}\", \"latitude\": -22.9056, \"longitude\": -47.0608}"
+                  "raw": "{\"locationText\":\"{{locationText}}\"}"
                 }
               },
               "event": [
@@ -2182,7 +2642,7 @@
                     "exec": [
                       "pm.test('history 200', () => pm.response.to.have.status(200));",
                       "const events=pm.response.json().data.filter(x => x.locationText === pm.collectionVariables.get('locationText'));",
-                      "if (events.length !== 1 && Date.now() < Number(pm.collectionVariables.get('waitDeadline'))) { setTimeout(() => pm.execution.setNextRequest('Wait for location history'), 1000); } else { pm.test('one location event after replay with coordinates', () => { pm.expect(events.length).to.eql(1); pm.expect(events[0].latitude).to.eql(-22.9056); pm.expect(events[0].longitude).to.eql(-47.0608); }); }"
+                      "if (events.length !== 1 && Date.now() < Number(pm.collectionVariables.get('waitDeadline'))) { setTimeout(() => pm.execution.setNextRequest('Wait for location history'), 1000); } else { pm.test('one location event after replay with coordinates', () => { pm.expect(events.length).to.eql(1); pm.expect(events[0].latitude).to.eql(Number(pm.collectionVariables.get('locationLatitude'))); pm.expect(events[0].longitude).to.eql(Number(pm.collectionVariables.get('locationLongitude'))); }); }"
                     ]
                   }
                 }
@@ -2212,7 +2672,7 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('shipment 200', () => pm.response.to.have.status(200));",
-                      "pm.test('current location processed', () => { const b=pm.response.json(); pm.expect(b.currentLocationText).to.eql(pm.collectionVariables.get('locationText')); pm.expect(b.currentLatitude).to.eql(-22.9056); pm.expect(b.currentLongitude).to.eql(-47.0608); });"
+                      "pm.test('current location processed', () => { const b=pm.response.json(); pm.expect(b.currentLocationText).to.eql(pm.collectionVariables.get('locationText')); pm.expect(b.currentLatitude).to.eql(Number(pm.collectionVariables.get('locationLatitude'))); pm.expect(b.currentLongitude).to.eql(Number(pm.collectionVariables.get('locationLongitude'))); });"
                     ]
                   }
                 }
@@ -2363,6 +2823,76 @@
               ]
             },
             {
+              "name": "Setup: create shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Setup: create shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Setup: create shipment",
               "request": {
                 "method": "POST",
@@ -2385,7 +2915,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -2410,7 +2940,7 @@
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
                       "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
                     ]
                   }
                 }
@@ -2611,6 +3141,76 @@
               ]
             },
             {
+              "name": "Create concurrent shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Create concurrent shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Create concurrent shipment",
               "request": {
                 "method": "POST",
@@ -2633,7 +3233,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{concurrentCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{concurrentCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -2654,7 +3254,7 @@
                     "type": "text/javascript",
                     "exec": [
                       "pm.test('201 concurrent shipment',()=>pm.response.to.have.status(201));",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
                     ]
                   }
                 }
@@ -2869,6 +3469,76 @@
               ]
             },
             {
+              "name": "Setup: create shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Setup: create shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Setup: create shipment",
               "request": {
                 "method": "POST",
@@ -2891,7 +3561,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -2916,7 +3586,7 @@
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
                       "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
                     ]
                   }
                 }
@@ -3146,6 +3816,76 @@
               ]
             },
             {
+              "name": "Setup: create shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Setup: create shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Setup: create shipment",
               "request": {
                 "method": "POST",
@@ -3168,7 +3908,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -3193,7 +3933,7 @@
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
                       "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
                     ]
                   }
                 }
@@ -3463,6 +4203,76 @@
               ]
             },
             {
+              "name": "Setup: create shipment - geocode origin",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                      "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Setup: create shipment - geocode destination",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{operatorToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                      "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "name": "Setup: create shipment",
               "request": {
                 "method": "POST",
@@ -3485,7 +4295,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729}"
+                  "raw": "{\"cargoCode\": \"{{cargoCode}}\", \"originCity\": \"{{originCity}}\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"{{destinationCity}}\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\"}"
                 }
               },
               "event": [
@@ -3510,7 +4320,7 @@
                     "exec": [
                       "pm.test('201',()=>pm.response.to.have.status(201));",
                       "const b=pm.response.json();pm.test('created and scoped',()=>{pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('cargoCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));});",
-                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(-23.5505); pm.expect(b.originLongitude).to.eql(-46.6333); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(-22.9068); pm.expect(b.destinationLongitude).to.eql(-43.1729); });"
+                      "pm.test('origin and destination coordinates', () => { const b=pm.response.json(); pm.expect(b.originCity).to.eql('São Paulo'); pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude'))); pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude'))); pm.expect(b.destinationCity).to.eql('Rio de Janeiro'); pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude'))); pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude'))); });"
                     ]
                   }
                 }
@@ -3683,6 +4493,76 @@
           ]
         },
         {
+          "name": "Create first shipment - geocode origin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                  "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                  "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create first shipment - geocode destination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                  "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Create first shipment",
           "request": {
             "method": "POST",
@@ -3705,7 +4585,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\"originCity\": \"São Paulo\", \"originCountry\": \"Brasil\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationCity\": \"Rio de Janeiro\", \"destinationCountry\": \"Brasil\", \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729, \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"customerId\": {{customerId}}, \"handledById\": {{operatorId}}, \"cargoCode\": \"{{historyCode}}\"}"
+              "raw": "{\"originCity\": \"São Paulo\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"Rio de Janeiro\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"customerId\": {{customerId}}, \"handledById\": {{operatorId}}, \"cargoCode\": \"{{historyCode}}\"}"
             }
           },
           "event": [
@@ -3727,8 +4607,78 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('201 shipment created',()=>pm.response.to.have.status(201));",
-                  "pm.test('created shipment and coordinates',()=>{const b=pm.response.json();pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('historyCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));pm.expect(b.originLatitude).to.eql(-23.5505);pm.expect(b.originLongitude).to.eql(-46.6333);pm.expect(b.destinationLatitude).to.eql(-22.9068);pm.expect(b.destinationLongitude).to.eql(-43.1729);});",
+                  "pm.test('created shipment and coordinates',()=>{const b=pm.response.json();pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('historyCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude')));pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude')));pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude')));pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude')));});",
                   "pm.collectionVariables.set('historyShipmentId',pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create second shipment - geocode origin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/tracking/geocode?address={{originAddress}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('originAddress', \"Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil\");",
+                  "pm.collectionVariables.set('destinationAddress', \"Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                  "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('originLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('originLongitude',Number(coordinates.longitude.toFixed(6)));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create second shipment - geocode destination",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/tracking/geocode?address={{destinationAddress}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('geocode status 200', () => pm.response.to.have.status(200));",
+                  "const coordinates=pm.response.json();pm.test('valid geocode coordinates',()=>{pm.expect(coordinates.latitude).to.be.a('number');pm.expect(coordinates.longitude).to.be.a('number');});pm.collectionVariables.set('destinationLatitude',Number(coordinates.latitude.toFixed(6)));pm.collectionVariables.set('destinationLongitude',Number(coordinates.longitude.toFixed(6)));"
                 ]
               }
             }
@@ -3757,7 +4707,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\"originCity\": \"São Paulo\", \"originCountry\": \"Brasil\", \"originLatitude\": -23.5505, \"originLongitude\": -46.6333, \"destinationCity\": \"Rio de Janeiro\", \"destinationCountry\": \"Brasil\", \"destinationLatitude\": -22.9068, \"destinationLongitude\": -43.1729, \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"customerId\": {{customerId}}, \"handledById\": {{operatorId}}, \"cargoCode\": \"{{historyOtherCode}}\"}"
+              "raw": "{\"originCity\": \"São Paulo\", \"originCountry\": \"Brasil\", \"originAddress\": \"{{originAddress}}\", \"destinationCity\": \"Rio de Janeiro\", \"destinationCountry\": \"Brasil\", \"destinationAddress\": \"{{destinationAddress}}\", \"departureDate\": \"{{departureDate}}\", \"estimatedDeliveryDate\": \"{{estimatedDeliveryDate}}\", \"customerId\": {{customerId}}, \"handledById\": {{operatorId}}, \"cargoCode\": \"{{historyOtherCode}}\"}"
             }
           },
           "event": [
@@ -3776,7 +4726,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('201 shipment created',()=>pm.response.to.have.status(201));",
-                  "pm.test('created shipment and coordinates',()=>{const b=pm.response.json();pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('historyOtherCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));pm.expect(b.originLatitude).to.eql(-23.5505);pm.expect(b.originLongitude).to.eql(-46.6333);pm.expect(b.destinationLatitude).to.eql(-22.9068);pm.expect(b.destinationLongitude).to.eql(-43.1729);});",
+                  "pm.test('created shipment and coordinates',()=>{const b=pm.response.json();pm.expect(b.cargoCode).to.eql(pm.collectionVariables.get('historyOtherCode').toUpperCase());pm.expect(b.status).to.eql('CREATED');pm.expect(b.customerId).to.eql(Number(pm.collectionVariables.get('customerId')));pm.expect(b.handledById).to.eql(Number(pm.collectionVariables.get('operatorId')));pm.expect(b.originLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude')));pm.expect(b.originLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude')));pm.expect(b.destinationLatitude).to.eql(Number(pm.collectionVariables.get('destinationLatitude')));pm.expect(b.destinationLongitude).to.eql(Number(pm.collectionVariables.get('destinationLongitude')));});",
                   "pm.collectionVariables.set('historyOtherShipmentId',pm.response.json().id);"
                 ]
               }
@@ -4031,7 +4981,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('shipment 200',()=>pm.response.to.have.status(200));",
-                  "pm.test('manual history does not move shipment',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('CREATED');pm.expect(b.currentLocationText).to.eql('São Paulo, Brasil');pm.expect(b.currentLatitude).to.eql(-23.5505);pm.expect(b.currentLongitude).to.eql(-46.6333);});"
+                  "pm.test('manual history does not move shipment',()=>{const b=pm.response.json();pm.expect(b.status).to.eql('CREATED');pm.expect(b.currentLocationText).to.eql(pm.collectionVariables.get('originAddress'));pm.expect(b.currentLatitude).to.eql(Number(pm.collectionVariables.get('originLatitude')));pm.expect(b.currentLongitude).to.eql(Number(pm.collectionVariables.get('originLongitude')));});"
                 ]
               }
             }

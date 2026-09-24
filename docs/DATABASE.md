@@ -55,10 +55,12 @@ erDiagram
         string status "CREATED | IN_TRANSIT | TRANSFERRED | DELIVERED"
         string originCity
         string originCountry
+        string originAddress "endereco completo"
         decimal originLatitude "NULL"
         decimal originLongitude "NULL"
         string destinationCity
         string destinationCountry
+        string destinationAddress "endereco completo"
         decimal destinationLatitude "NULL"
         decimal destinationLongitude "NULL"
         datetime geocodedAt "NULL - cache do geocoder"
@@ -205,12 +207,17 @@ Evolução futura, simétrica ao split: job/script com `SWITCH` da partição ma
 
 ## Geolocalização (colunas)
 
-- `origin*Latitude/Longitude`, `destination*Latitude/Longitude`: coordenadas (nullable).
+- `originAddress` e `destinationAddress`: endereços completos obrigatórios, preservados como
+  recebidos após trim. As coordenadas correspondentes são resolvidas pelo backend antes da criação.
+- `origin*Latitude/Longitude`, `destination*Latitude/Longitude`: coordenadas com colunas nullable
+  para compatibilidade histórica; novas cargas sempre persistem os dois pares completos.
 - A localização de cada ocorrência vive em `shipment_events(locationText, latitude, longitude)`; a
   localização **atual** da carga é sempre a do último evento (`occurredAt DESC, id DESC`) — a tabela
   `shipments` não guarda posição (evita reescrita duplicada a cada atualização).
-- `geocodedAt` + `geocodeProvider`: cache da resolução feita via API OSS **Nominatim** (OpenStreetMap). Resolver origem/destino uma única vez na criação da carga; respeitar a policy do Nominatim (máx. 1 req/s, `User-Agent` identificável) e nunca re-geocodificar endereço já resolvido (`geocodedAt != NULL`).
-- A chamada externa ficará atrás de uma port (`GeocodePort`) na aplicação, implementada na infraestrutura — nenhum cliente HTTP no domínio.
+- O cache de endereços fica no Redis e é consultado antes do provedor configurado. `geocodedAt` e
+  `geocodeProvider` permanecem como metadados opcionais da carga.
+- A chamada externa fica atrás da port `GeocodingPort` na aplicação, implementada na
+  infraestrutura — nenhum cliente HTTP no domínio ou na aplicação.
 
 ## Seed (`npm run db:seed`)
 

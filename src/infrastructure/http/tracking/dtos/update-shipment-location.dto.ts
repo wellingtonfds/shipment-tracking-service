@@ -14,7 +14,7 @@ export class UpdateShipmentLocationDto {
   @ApiProperty({
     example: 'Maceió, AL',
     description:
-      'Current location text (basic location update; no external geocoding)',
+      'Current location text or complete address. When coordinates are omitted, the worker resolves them asynchronously.',
     maxLength: 255,
   })
   @IsString()

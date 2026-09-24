@@ -1,4 +1,10 @@
-import { CreateShipmentInput, InvalidShipmentError, ShipmentWithLocation, TenantPrincipal, validateCreateShipment } from '../../../domain/shipments/shipment.entity.js';
+import {
+  CreateShipmentInput,
+  InvalidShipmentError,
+  ShipmentWithLocation,
+  TenantPrincipal,
+  validateCreateShipment,
+} from '../../../domain/shipments/shipment.entity.js';
 import { CustomerScopeMissingError } from '../../../domain/shipments/errors/customer-scope-missing.error.js';
 import { ShipmentCargoCodeInUseError } from '../../../domain/shipments/errors/shipment-cargo-code-in-use.error.js';
 import { ShipmentHandlerInactiveError } from '../../../domain/shipments/errors/shipment-handler-inactive.error.js';
@@ -9,6 +15,7 @@ import { UserNotFoundError } from '../../../domain/users/errors/user-not-found.e
 import { UserRepositoryPort } from '../../../domain/users/ports/user-repository.port.js';
 import { CustomerNotFoundError } from '../../../domain/customers/errors/customer-not-found.error.js';
 import { CustomerRepositoryPort } from '../../../domain/customers/ports/customer-repository.port.js';
+import type { GeocodingPort } from '../ports/geocoding.port.js';
 
 export interface CreateShipmentRequest extends CreateShipmentInput {
   /** Only meaningful for ADMINISTRATOR; OPERATOR input here is ignored (derived from the token). */
@@ -23,31 +30,52 @@ export class CreateShipmentUseCase {
     private readonly shipments: ShipmentRepositoryPort,
     private readonly customers: CustomerRepositoryPort,
     private readonly users: UserRepositoryPort,
+    private readonly geocoder: GeocodingPort,
   ) {}
 
   async execute(request: CreateShipmentRequest): Promise<ShipmentWithLocation> {
     const { principal, customerId, handledById, ...shipmentInput } = request;
     const data = validateCreateShipment(shipmentInput);
-    const ownership = await this.resolveOwnership(principal, customerId, handledById);
+    const ownership = await this.resolveOwnership(
+      principal,
+      customerId,
+      handledById,
+    );
 
     const existing = await this.shipments.findByCargoCode(data.cargoCode);
     if (existing) {
       throw new ShipmentCargoCodeInUseError(data.cargoCode);
     }
 
-    const created = await this.shipments.create({ ...data, customerId: ownership.customerId, handledById: ownership.handledById });
+    const [origin, destination] = await Promise.all([
+      this.geocoder.geocode(data.originAddress),
+      this.geocoder.geocode(data.destinationAddress),
+    ]);
+    const created = await this.shipments.create({
+      ...data,
+      originLatitude: origin.latitude,
+      originLongitude: origin.longitude,
+      destinationLatitude: destination.latitude,
+      destinationLongitude: destination.longitude,
+      customerId: ownership.customerId,
+      handledById: ownership.handledById,
+    });
     // The initial location is the origin, recorded in the CREATED event.
     return {
       ...created,
       currentLocation: {
-        locationText: `${created.originCity}, ${created.originCountry}`,
+        locationText: created.originAddress,
         latitude: created.originLatitude,
         longitude: created.originLongitude,
       },
     };
   }
 
-  private async resolveOwnership(principal: TenantPrincipal, customerId: number | null | undefined, handledById: number | null | undefined): Promise<{ customerId: number; handledById: number }> {
+  private async resolveOwnership(
+    principal: TenantPrincipal,
+    customerId: number | null | undefined,
+    handledById: number | null | undefined,
+  ): Promise<{ customerId: number; handledById: number }> {
     if (principal.role === 'ADMINISTRATOR') {
       if (customerId === undefined || customerId === null) {
         throw new InvalidShipmentError('customerId is required');
@@ -67,16 +95,23 @@ export class CreateShipmentUseCase {
         throw new ShipmentHandlerInactiveError(handledById);
       }
       if (handler.role !== 'OPERATOR' || handler.customerId !== customerId) {
-        throw new ShipmentHandlerRequiredError('Shipment handler must be an active OPERATOR linked to the shipment customer');
+        throw new ShipmentHandlerRequiredError(
+          'Shipment handler must be an active OPERATOR linked to the shipment customer',
+        );
       }
       return { customerId, handledById };
     }
     if (principal.role === 'OPERATOR' && principal.customerId !== null) {
-      return { customerId: principal.customerId, handledById: principal.userId };
+      return {
+        customerId: principal.customerId,
+        handledById: principal.userId,
+      };
     }
     if (principal.role === 'OPERATOR') {
       throw new CustomerScopeMissingError();
     }
-    throw new AccessDeniedError('Only ADMINISTRATOR and OPERATOR profiles can register shipments');
+    throw new AccessDeniedError(
+      'Only ADMINISTRATOR and OPERATOR profiles can register shipments',
+    );
   }
 }

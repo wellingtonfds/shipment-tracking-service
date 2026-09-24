@@ -1,6 +1,13 @@
-import { Logger } from '@nestjs/common';
+import { Logger, type OnModuleDestroy } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { Redis } from 'ioredis';
+import type {
+  GeocodingCoordinates,
+  GeocodingPort,
+} from '../../../application/shipments/ports/geocoding.port.js';
+import { GeocodingProviderUnavailableError } from '../../../domain/shipments/errors/geocoding-provider-unavailable.error.js';
+import { GeocodingResultNotFoundError } from '../../../domain/shipments/errors/geocoding-result-not-found.error.js';
+import { InvalidGeocodingAddressError } from '../../../domain/shipments/errors/invalid-geocoding-address.error.js';
 import type { TrackingConfig } from '../../config/configuration.js';
 
 export interface TrackingLocation {
@@ -9,52 +16,58 @@ export interface TrackingLocation {
   longitude: number | null;
 }
 
-export class TrackingGeocoder {
+export class TrackingGeocoder implements GeocodingPort, OnModuleDestroy {
   private readonly logger = new Logger(TrackingGeocoder.name);
 
   constructor(
-    private readonly redis: Redis,
+    private readonly redis: Redis | undefined,
     private readonly getConfig: () => TrackingConfig['geocoder'],
+    private readonly ownsRedis = false,
   ) {}
 
-  async resolveLocation(location: TrackingLocation): Promise<TrackingLocation> {
-    if (location.latitude !== null && location.longitude !== null)
-      return location;
+  async onModuleDestroy(): Promise<void> {
+    if (this.ownsRedis) this.redis?.disconnect();
+  }
+
+  async geocode(address: string): Promise<GeocodingCoordinates> {
+    const normalized = address.trim();
+    if (normalized.length < 3 || normalized.length > 255)
+      throw new InvalidGeocodingAddressError();
+
     const geocoder = this.getConfig();
     const endpoint = geocoder.url;
-    if (!endpoint) return location;
-    const cooldown = geocoder.circuitCooldownMs;
+    if (!endpoint) throw new GeocodingProviderUnavailableError();
+
     const providerKey = createHash('sha256').update(endpoint).digest('hex');
-    const cacheKey = `tracking:geocode:${createHash('sha256').update(`${endpoint}:${location.locationText.toLowerCase().trim()}`).digest('hex')}`;
-    const cached = await this.redis.get(cacheKey);
-    if (cached)
-      return {
-        ...location,
-        ...(JSON.parse(cached) as { latitude: number; longitude: number }),
-      };
+    const cacheKey = `tracking:geocode:${createHash('sha256').update(`${endpoint}:${normalized.toLowerCase()}`).digest('hex')}`;
     const circuitKey = `tracking:geocode:circuit:${providerKey}:open`;
-    if (await this.redis.get(circuitKey)) return location;
     const halfOpenKey = `tracking:geocode:circuit:${providerKey}:half-open`;
-    const hasOpenedBefore = await this.redis.get(
-      `tracking:geocode:circuit:${providerKey}:ever-opened`,
-    );
-    let isProbe = false;
-    if (hasOpenedBefore) {
-      const halfOpen = await this.redis.set(
-        halfOpenKey,
-        randomUUID(),
-        'PX',
-        geocoder.timeoutMs + 1000,
-        'NX',
-      );
-      if (halfOpen !== 'OK') return location;
-      isProbe = true;
-    }
+    const everOpenedKey = `tracking:geocode:circuit:${providerKey}:ever-opened`;
     const failuresKey = `tracking:geocode:circuit:${providerKey}:failures`;
+    let isProbe = false;
+
     try {
-      await this.waitForGeocodeSlot(providerKey, geocoder.rateLimit);
+      const cached = await this.redis?.get(cacheKey);
+      if (cached) return JSON.parse(cached) as GeocodingCoordinates;
+      if (await this.redis?.get(circuitKey))
+        throw new GeocodingProviderUnavailableError();
+
+      if (await this.redis?.get(everOpenedKey)) {
+        const halfOpen = await this.redis?.set(
+          halfOpenKey,
+          randomUUID(),
+          'PX',
+          geocoder.timeoutMs + 1000,
+          'NX',
+        );
+        if (halfOpen !== 'OK') throw new GeocodingProviderUnavailableError();
+        isProbe = true;
+      }
+
+      if (this.redis)
+        await this.waitForGeocodeSlot(providerKey, geocoder.rateLimit);
       const url = new URL(endpoint);
-      url.searchParams.set('q', location.locationText);
+      url.searchParams.set('q', normalized);
       url.searchParams.set('format', 'json');
       url.searchParams.set('limit', '1');
       const headers: Record<string, string> = {
@@ -65,19 +78,22 @@ export class TrackingGeocoder {
         headers,
         signal: AbortSignal.timeout(geocoder.timeoutMs),
       });
-      if (!response.ok) throw new Error(`Geocoder returned ${response.status}`);
+      if (response.status === 400) throw new InvalidGeocodingAddressError();
+      if (!response.ok) throw new GeocodingProviderUnavailableError();
       const results = (await response.json()) as Array<{
         lat: string;
         lon: string;
       }>;
-      await this.redis.del(
-        failuresKey,
-        circuitKey,
-        halfOpenKey,
-        `tracking:geocode:circuit:${providerKey}:ever-opened`,
-      );
       const first = results[0];
-      if (!first) return location;
+      if (!first) {
+        await this.resetCircuit(
+          failuresKey,
+          circuitKey,
+          halfOpenKey,
+          everOpenedKey,
+        );
+        throw new GeocodingResultNotFoundError();
+      }
       const coordinates = {
         latitude: Number(first.lat),
         longitude: Number(first.lon),
@@ -90,30 +106,85 @@ export class TrackingGeocoder {
         coordinates.longitude < -180 ||
         coordinates.longitude > 180
       )
-        return location;
-      await this.redis.set(
+        throw new GeocodingProviderUnavailableError();
+
+      await this.resetCircuit(
+        failuresKey,
+        circuitKey,
+        halfOpenKey,
+        everOpenedKey,
+      );
+      await this.redis?.set(
         cacheKey,
         JSON.stringify(coordinates),
         'EX',
         geocoder.cacheTtlSeconds,
       );
-      return { ...location, ...coordinates };
+      return coordinates;
     } catch (error) {
+      if (
+        error instanceof InvalidGeocodingAddressError ||
+        error instanceof GeocodingResultNotFoundError
+      )
+        throw error;
+      await this.recordFailure(
+        failuresKey,
+        circuitKey,
+        halfOpenKey,
+        everOpenedKey,
+        geocoder,
+        isProbe,
+      );
+      this.logger.warn(`Geocoder unavailable: ${String(error)}`);
+      throw new GeocodingProviderUnavailableError();
+    }
+  }
+
+  async resolveLocation(location: TrackingLocation): Promise<TrackingLocation> {
+    if (location.latitude !== null && location.longitude !== null)
+      return location;
+    try {
+      return { ...location, ...(await this.geocode(location.locationText)) };
+    } catch (error) {
+      this.logger.warn(
+        `Geocoding failed; retaining textual location: ${String(error)}`,
+      );
+      return location;
+    }
+  }
+
+  private async resetCircuit(...keys: string[]): Promise<void> {
+    if (this.redis) await this.redis.del(...keys);
+  }
+
+  private async recordFailure(
+    failuresKey: string,
+    circuitKey: string,
+    halfOpenKey: string,
+    everOpenedKey: string,
+    geocoder: TrackingConfig['geocoder'],
+    isProbe: boolean,
+  ): Promise<void> {
+    if (!this.redis) return;
+    try {
       const failures = await this.redis.incr(failuresKey);
-      if (failures === 1) await this.redis.pexpire(failuresKey, cooldown);
+      if (failures === 1)
+        await this.redis.pexpire(failuresKey, geocoder.circuitCooldownMs);
       if (failures >= geocoder.circuitFailures || isProbe) {
-        await this.redis.set(circuitKey, 'open', 'PX', cooldown);
         await this.redis.set(
-          `tracking:geocode:circuit:${providerKey}:ever-opened`,
-          '1',
+          circuitKey,
+          'open',
+          'PX',
+          geocoder.circuitCooldownMs,
         );
+        await this.redis.set(everOpenedKey, '1');
         await this.redis.del(failuresKey);
       }
       if (isProbe) await this.redis.del(halfOpenKey);
+    } catch (error) {
       this.logger.warn(
-        `Geocoder unavailable; retaining textual location: ${String(error)}`,
+        `Could not update geocoder circuit state: ${String(error)}`,
       );
-      return location;
     }
   }
 
@@ -121,6 +192,7 @@ export class TrackingGeocoder {
     providerKey: string,
     rateLimit: number,
   ): Promise<void> {
+    if (!this.redis) return;
     const windowMs = 1000;
     const maxRequests = Math.max(1, rateLimit);
     const key = `tracking:geocode:rate-limit:${providerKey}`;

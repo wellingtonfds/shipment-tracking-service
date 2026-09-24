@@ -8,15 +8,36 @@ import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { PrismaService } from '../src/infrastructure/database/prisma.service.js';
 import { TrackingOutboxWorkerService } from '../src/infrastructure/database/shipments/tracking-outbox-worker.service.js';
+import { GEOCODING_PORT } from '../src/application/shipments/shipment.tokens.js';
+import { GeocodingResultNotFoundError } from '../src/domain/shipments/errors/geocoding-result-not-found.error.js';
+import { GeocodingProviderUnavailableError } from '../src/domain/shipments/errors/geocoding-provider-unavailable.error.js';
 
 describe('Tracking (e2e)', () => {
   let app: INestApplication<App>;
+  const originAddress =
+    'Avenida Paulista, 1578, Bela Vista, São Paulo, SP, Brasil';
+  const destinationAddress =
+    'Avenida Atlântica, 1702, Copacabana, Rio de Janeiro, RJ, Brasil';
+  const checkpointAddress = 'Praça da Sé, 1, Sé, São Paulo, SP, Brasil';
+  const geocode = vi.fn(async (address: string) => {
+    if (address === originAddress)
+      return { latitude: -23.561414, longitude: -46.655881 };
+    if (address === destinationAddress)
+      return { latitude: -22.9675, longitude: -43.1792 };
+    if (address === checkpointAddress)
+      return { latitude: -23.550309, longitude: -46.6342 };
+    if (address === 'Provider unavailable')
+      throw new GeocodingProviderUnavailableError();
+    throw new GeocodingResultNotFoundError();
+  });
   const previousQueueSettings = {
     enabled: process.env.TRACKING_QUEUE_ENABLED,
     worker: process.env.TRACKING_WORKER_ROLE,
     host: process.env.REDIS_HOST,
     port: process.env.REDIS_PORT,
     geocoderUrl: process.env.GEOCODER_URL,
+    queueName: process.env.TRACKING_QUEUE_NAME,
+    deadQueueName: process.env.TRACKING_DEAD_QUEUE_NAME,
   };
   const stamp = Date.now();
   const codeA = `E2E${stamp}A`;
@@ -33,9 +54,14 @@ describe('Tracking (e2e)', () => {
     process.env.REDIS_HOST = '127.0.0.1';
     process.env.REDIS_PORT = '6380';
     process.env.GEOCODER_URL = '';
+    process.env.TRACKING_QUEUE_NAME = `tracking-events-e2e-${stamp}`;
+    process.env.TRACKING_DEAD_QUEUE_NAME = `tracking-events-dlq-e2e-${stamp}`;
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(GEOCODING_PORT)
+      .useValue({ geocode })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
@@ -64,6 +90,14 @@ describe('Tracking (e2e)', () => {
     if (previousQueueSettings.geocoderUrl === undefined)
       delete process.env.GEOCODER_URL;
     else process.env.GEOCODER_URL = previousQueueSettings.geocoderUrl;
+    if (previousQueueSettings.queueName === undefined)
+      delete process.env.TRACKING_QUEUE_NAME;
+    else process.env.TRACKING_QUEUE_NAME = previousQueueSettings.queueName;
+    if (previousQueueSettings.deadQueueName === undefined)
+      delete process.env.TRACKING_DEAD_QUEUE_NAME;
+    else
+      process.env.TRACKING_DEAD_QUEUE_NAME =
+        previousQueueSettings.deadQueueName;
   });
 
   const server = (): App => app.getHttpServer();
@@ -99,8 +133,10 @@ describe('Tracking (e2e)', () => {
     cargoCode,
     originCity: 'São Paulo',
     originCountry: 'Brasil',
+    originAddress,
     destinationCity: 'Rio de Janeiro',
     destinationCountry: 'Brasil',
+    destinationAddress,
     departureDate: departure,
     estimatedDeliveryDate: estimated,
   });
@@ -152,6 +188,46 @@ describe('Tracking (e2e)', () => {
     await request(server()).get('/api/v1/tracking').expect(401);
   });
 
+  it('GET /api/v1/tracking/geocode requires a valid token', async () => {
+    await request(server())
+      .get('/api/v1/tracking/geocode')
+      .query({ address: originAddress })
+      .expect(401);
+    await request(server())
+      .get('/api/v1/tracking/geocode')
+      .set('Authorization', 'Bearer invalid-token')
+      .query({ address: originAddress })
+      .expect(401);
+  });
+
+  it('GET /api/v1/tracking/geocode resolves addresses and maps failures', async () => {
+    await request(server())
+      .get('/api/v1/tracking/geocode')
+      .set('Authorization', `Bearer ${portalToken}`)
+      .query({ address: originAddress })
+      .expect(200, { latitude: -23.561414, longitude: -46.655881 });
+
+    await request(server())
+      .get('/api/v1/tracking/geocode')
+      .set('Authorization', `Bearer ${portalToken}`)
+      .query({ address: 'x' })
+      .expect(400);
+
+    const missing = await request(server())
+      .get('/api/v1/tracking/geocode')
+      .set('Authorization', `Bearer ${portalToken}`)
+      .query({ address: 'Unknown complete address' })
+      .expect(404);
+    expect(missing.body.code).toBe('GEOCODING_RESULT_NOT_FOUND');
+
+    const unavailable = await request(server())
+      .get('/api/v1/tracking/geocode')
+      .set('Authorization', `Bearer ${portalToken}`)
+      .query({ address: 'Provider unavailable' })
+      .expect(503);
+    expect(unavailable.body.code).toBe('GEOCODING_PROVIDER_UNAVAILABLE');
+  });
+
   it('POST /api/v1/tracking creates a shipment scoped to the operator customer (201)', async () => {
     const response = await request(server())
       .post('/api/v1/tracking')
@@ -162,6 +238,12 @@ describe('Tracking (e2e)', () => {
     expect(response.body).toMatchObject({
       cargoCode: codeA,
       status: 'CREATED',
+      originAddress,
+      originLatitude: -23.561414,
+      originLongitude: -46.655881,
+      destinationAddress,
+      destinationLatitude: -22.9675,
+      destinationLongitude: -43.1792,
       customerId: mariaId,
       handledById: sergioId,
     });
@@ -355,9 +437,7 @@ describe('Tracking (e2e)', () => {
 
   it('PUT /api/v1/tracking/:codigoCarga/localizacao updates only the location', async () => {
     const payload = {
-      locationText: 'Maceió, AL',
-      latitude: -9.6658,
-      longitude: -35.7353,
+      locationText: checkpointAddress,
       notes: 'GPS ping',
     };
     const key = `e2e-${stamp}-location-a`;
@@ -369,7 +449,13 @@ describe('Tracking (e2e)', () => {
       .expect(202);
 
     expect(updated.body).toMatchObject({ accepted: true, duplicate: false });
-    await waitForHistory('Maceió, AL');
+    await (
+      app.get(TrackingOutboxWorkerService) as unknown as {
+        processJob(job: { data: { outboxId: string } }): Promise<void>;
+      }
+    ).processJob({ data: { outboxId: updated.body.eventId } });
+    await waitForHistory(checkpointAddress);
+    expect(geocode).toHaveBeenCalledWith(checkpointAddress);
 
     const history = await request(server())
       .get(`/api/v1/tracking/${codeA}/historico`)
@@ -378,8 +464,20 @@ describe('Tracking (e2e)', () => {
     expect(history.body.meta.total).toBe(3);
     expect(history.body.data[0]).toMatchObject({
       status: 'IN_TRANSIT',
-      locationText: 'Maceió, AL',
+      locationText: checkpointAddress,
+      latitude: -23.550309,
+      longitude: -46.6342,
       notes: 'GPS ping',
+    });
+
+    const detail = await request(server())
+      .get(`/api/v1/tracking/${codeA}`)
+      .set('Authorization', `Bearer ${sergioToken}`)
+      .expect(200);
+    expect(detail.body).toMatchObject({
+      currentLocationText: checkpointAddress,
+      currentLatitude: -23.550309,
+      currentLongitude: -46.6342,
     });
 
     const repeated = await request(server())
@@ -400,7 +498,7 @@ describe('Tracking (e2e)', () => {
       .send({ ...payload, locationText: 'Recife, PE' })
       .expect(409);
 
-    const duplicateQueue = new Queue('tracking-events', {
+    const duplicateQueue = new Queue(`tracking-events-e2e-${stamp}`, {
       connection: { host: '127.0.0.1', port: 6380, maxRetriesPerRequest: null },
     });
     await duplicateQueue.add(
@@ -582,7 +680,9 @@ describe('Tracking (e2e)', () => {
         }),
       },
     });
-    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const log = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
     try {
       await workerService.handleFailure(
         { timestamp: Date.now() - 86400001, data: { outboxId: deadLetter.id } },

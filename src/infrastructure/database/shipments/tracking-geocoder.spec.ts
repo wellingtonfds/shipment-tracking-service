@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Logger } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import type { TrackingConfig } from '../../config/configuration.js';
 import {
@@ -165,6 +166,7 @@ describe('TrackingGeocoder', () => {
   );
 
   it('opens the circuit after repeated provider errors', async () => {
+    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
     const { geocoder, redis } = harness();
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503 });
     vi.stubGlobal('fetch', fetchMock);
@@ -179,6 +181,15 @@ describe('TrackingGeocoder', () => {
       'open',
       'PX',
       5000,
+      'NX',
+    );
+    expect(log).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        component: 'tracking-geocoder',
+        event: 'geocoder.circuit.opened',
+        cooldownMs: 5000,
+      }),
+      'Geocoder circuit opened',
     );
   });
 

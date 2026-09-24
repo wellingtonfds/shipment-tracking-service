@@ -1,12 +1,16 @@
 import 'reflect-metadata';
-import { Logger, ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AppModule } from './app.module.js';
+import './infrastructure/observability/telemetry.js';
+
+const { ValidationPipe } = await import('@nestjs/common');
+const { ConfigService } = await import('@nestjs/config');
+const { NestFactory } = await import('@nestjs/core');
+const { DocumentBuilder, SwaggerModule } = await import('@nestjs/swagger');
+const { Logger } = await import('nestjs-pino');
+const { AppModule } = await import('./app.module.js');
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
 
   const config = app.get(ConfigService);
   const port = config.get<number>('port') ?? 3000;
@@ -33,9 +37,11 @@ async function bootstrap(): Promise<void> {
 
   await app.listen(port);
 
-  const logger = new Logger('Bootstrap');
-  logger.log(`API at http://localhost:${port}/${prefix}`);
-  logger.log(`Swagger at http://localhost:${port}/docs`);
+  const logger = app.get(Logger);
+  logger.log(
+    { component: 'bootstrap', event: 'application.started', port, prefix },
+    'Application started',
+  );
 }
 
 await bootstrap();

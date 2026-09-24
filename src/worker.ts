@@ -1,6 +1,8 @@
 import 'reflect-metadata';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module.js';
+import './infrastructure/observability/telemetry.js';
+
+const { NestFactory } = await import('@nestjs/core');
+const { AppModule } = await import('./app.module.js');
 
 const context = await NestFactory.createApplicationContext(AppModule);
 context.enableShutdownHooks();

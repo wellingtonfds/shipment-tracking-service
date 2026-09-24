@@ -37,10 +37,12 @@ interface ShipmentRecord {
   status: string;
   originCity: string;
   originCountry: string;
+  originAddress: string;
   originLatitude: DecimalLike | null;
   originLongitude: DecimalLike | null;
   destinationCity: string;
   destinationCountry: string;
+  destinationAddress: string;
   destinationLatitude: DecimalLike | null;
   destinationLongitude: DecimalLike | null;
   geocodedAt: Date | null;
@@ -101,10 +103,12 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
             status: data.status,
             originCity: data.originCity,
             originCountry: data.originCountry,
+            originAddress: data.originAddress,
             originLatitude: data.originLatitude,
             originLongitude: data.originLongitude,
             destinationCity: data.destinationCity,
             destinationCountry: data.destinationCountry,
+            destinationAddress: data.destinationAddress,
             destinationLatitude: data.destinationLatitude,
             destinationLongitude: data.destinationLongitude,
             departureDate: data.departureDate,
@@ -119,7 +123,7 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
             shipmentId: created.id,
             status: 'CREATED',
             occurredAt: new Date(),
-            locationText: `${data.originCity}, ${data.originCountry}`,
+            locationText: data.originAddress,
             latitude: data.originLatitude,
             longitude: data.originLongitude,
             notes: 'Shipment registered in the system',
@@ -545,10 +549,12 @@ export class PrismaShipmentRepositoryAdapter implements ShipmentRepositoryPort {
       status: record.status as ShipmentStatus,
       originCity: record.originCity,
       originCountry: record.originCountry,
+      originAddress: record.originAddress,
       originLatitude: this.toNumber(record.originLatitude),
       originLongitude: this.toNumber(record.originLongitude),
       destinationCity: record.destinationCity,
       destinationCountry: record.destinationCountry,
+      destinationAddress: record.destinationAddress,
       destinationLatitude: this.toNumber(record.destinationLatitude),
       destinationLongitude: this.toNumber(record.destinationLongitude),
       geocodedAt: record.geocodedAt,

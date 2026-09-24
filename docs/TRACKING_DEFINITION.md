@@ -83,12 +83,23 @@ futuros: `GET /historico` sempre com janela temporal e teto de paginação.
 
 ## Geolocalização
 
-Coordenadas fornecidas na solicitação são preservadas. Quando faltam e `GEOCODER_URL` está
-configurado, o worker consulta o provedor configurado, cacheia o resultado no Redis e aplica
-rate limit distribuído no Redis. O formato de resposta é compatível com a busca do Nominatim
+`GET /tracking/geocode?address=` permite que qualquer perfil autenticado resolva um endereço
+completo. A port `GeocodingPort`, na aplicação, isola o provedor externo e o Redis. O adapter
+consulta primeiro o cache, aplica rate limit distribuído e circuit breaker e só então chama o
+provedor. Endereço inválido retorna `400`, ausência de resultado retorna `404` e indisponibilidade
+do provedor retorna `503`.
+
+Na criação da carga, `originAddress` e `destinationAddress` são obrigatórios e o cliente não envia
+coordenadas. Os dois endereços são resolvidos antes da transação; a carga só é criada quando ambos
+têm coordenadas. Endereços e coordenadas ficam persistidos no `Shipment`, e o evento inicial
+`CREATED` usa o endereço completo da origem.
+
+Na atualização assíncrona de localização, coordenadas continuam opcionais. Quando faltam, o worker
+usa `locationText` — que pode ser um endereço completo — para consultar a mesma port. Se a
+geocodificação falhar, a ocorrência preserva o texto e permanece sem coordenadas, mantendo o
+comportamento tolerante da fila. O formato do provedor é compatível com a busca do Nominatim
 (array com `lat`/`lon`); `GEOCODER_USER_AGENT` identifica a aplicação e `GEOCODER_API_KEY`
-opcional é enviado como Bearer. O circuit breaker e o timeout evitam bloquear a fila; em falha,
-a ocorrência continua com texto e sem coordenadas. Nenhum cliente HTTP é importado pelo domínio.
+opcional é enviado como Bearer. Nenhum cliente HTTP é importado pelo domínio ou pela aplicação.
 
 ## Endpoints (gestão de usuários: implementados; restante: planned)
 
@@ -126,6 +137,7 @@ comparação em tempo constante).
 | Método | Rota                                  | Use-case                        | Notas                                                                                                                                                                                 |
 | ------ | ------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | POST   | `/tracking`                           | `CreateShipmentUseCase`         | valida datas + cargoCode único; OPERATOR usa escopo do token (`handledBy = self`), ADMINISTRATOR informa `customerId`+`handledById`; cria evento inicial `CREATED` na mesma transação |
+| GET    | `/tracking/geocode`                   | `GeocodeAddressUseCase`         | qualquer perfil autenticado; resolve `address` pelo cache/provedor e retorna latitude/longitude                                                                                     |
 | GET    | `/tracking`                           | `ListShipmentsUseCase`          | filtros `status`, `idCliente`, `idOperador`, janelas de embarque/entrega, combináveis; ordenação + paginação com teto de `limit`; scoping via token                                   |
 | GET    | `/tracking/{codigoCarga}`             | `GetShipmentUseCase`            | detalhes completos + status atual                                                                                                                                                     |
 | PUT    | `/tracking/{codigoCarga}/status`      | `UpdateShipmentStatusUseCase`   | responde 202 após gravar evento bruto e outbox na mesma transação SQL; worker aplica status e histórico                                                                               |

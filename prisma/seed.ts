@@ -206,8 +206,10 @@ async function main(): Promise<void> {
       const shipmentData = {
         status: s.status,
         originCity: s.origin[0], originCountry: s.origin[1],
+        originAddress: `${s.origin[0]}, ${s.origin[1]}`,
         originLatitude: s.origin[2], originLongitude: s.origin[3],
         destinationCity: s.destination[0], destinationCountry: s.destination[1],
+        destinationAddress: `${s.destination[0]}, ${s.destination[1]}`,
         destinationLatitude: s.destination[2], destinationLongitude: s.destination[3],
         geocodedAt: new Date(), geocodeProvider: 'NOMINATIM',
         departureDate,

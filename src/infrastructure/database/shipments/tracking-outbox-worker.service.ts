@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
@@ -12,9 +13,10 @@ import { rmSync, writeFileSync } from 'node:fs';
 import { Job, Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { assertTransition } from '../../../domain/shipments/shipment.entity.js';
+import type { GeocodingPort } from '../../../application/shipments/ports/geocoding.port.js';
+import { GEOCODING_PORT } from '../../../application/shipments/shipment.tokens.js';
 import type { AppConfig, TrackingConfig } from '../../config/configuration.js';
 import { PrismaService } from '../prisma.service.js';
-import { TrackingGeocoder } from './tracking-geocoder.js';
 
 interface TrackingPayload {
   status: string;
@@ -26,16 +28,12 @@ interface TrackingPayload {
   occurredAt: string;
 }
 
-const QUEUE_NAME = 'tracking-events';
-const DEAD_QUEUE_NAME = 'tracking-events-dlq';
-
 @Injectable()
 export class TrackingOutboxWorkerService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(TrackingOutboxWorkerService.name);
   private redis?: Redis;
-  private geocoder?: TrackingGeocoder;
   private queue?: Queue;
   private deadQueue?: Queue;
   private worker?: Worker;
@@ -49,6 +47,7 @@ export class TrackingOutboxWorkerService
     private readonly prisma: PrismaService,
     private readonly config: ConfigService<AppConfig>,
     @InjectBullBoard() private readonly bullBoard: BullBoardInstance,
+    @Inject(GEOCODING_PORT) private readonly geocoder: GeocodingPort,
   ) {}
 
   private get tracking(): TrackingConfig {
@@ -72,10 +71,6 @@ export class TrackingOutboxWorkerService
       lazyConnect: true,
     });
     await this.redis.connect();
-    this.geocoder = new TrackingGeocoder(
-      this.redis,
-      () => this.tracking.geocoder,
-    );
     const connection = {
       host,
       port: tracking.redis.port,
@@ -83,7 +78,7 @@ export class TrackingOutboxWorkerService
       tls: tracking.redis.tls ? {} : undefined,
       maxRetriesPerRequest: null as null,
     };
-    this.queue = new Queue(QUEUE_NAME, {
+    this.queue = new Queue(tracking.queueName, {
       connection,
       defaultJobOptions: {
         attempts: 1000,
@@ -92,7 +87,7 @@ export class TrackingOutboxWorkerService
         removeOnFail: false,
       },
     });
-    this.deadQueue = new Queue(DEAD_QUEUE_NAME, {
+    this.deadQueue = new Queue(tracking.deadQueueName, {
       connection,
       defaultJobOptions: {
         attempts: 1000,
@@ -106,22 +101,26 @@ export class TrackingOutboxWorkerService
     this.bullBoard.addQueue(new BullMQAdapter(this.queue));
     this.bullBoard.addQueue(new BullMQAdapter(this.deadQueue));
     if (tracking.workerRole) {
-      this.worker = new Worker(QUEUE_NAME, (job) => this.processJob(job), {
-        connection,
-        concurrency: tracking.workerConcurrency,
-        settings: {
-          backoffStrategy: (attemptsMade: number) => {
-            const cap = tracking.backoffMaxMs;
-            const base = Math.min(
-              cap,
-              1000 * 2 ** Math.min(attemptsMade - 1, 20),
-            );
-            return Math.min(cap, Math.floor(base * (0.5 + Math.random())));
+      this.worker = new Worker(
+        tracking.queueName,
+        (job) => this.processJob(job),
+        {
+          connection,
+          concurrency: tracking.workerConcurrency,
+          settings: {
+            backoffStrategy: (attemptsMade: number) => {
+              const cap = tracking.backoffMaxMs;
+              const base = Math.min(
+                cap,
+                1000 * 2 ** Math.min(attemptsMade - 1, 20),
+              );
+              return Math.min(cap, Math.floor(base * (0.5 + Math.random())));
+            },
           },
         },
-      });
+      );
       this.deadWorker = new Worker(
-        DEAD_QUEUE_NAME,
+        tracking.deadQueueName,
         (job) => this.processJob(job),
         {
           connection,
@@ -275,7 +274,7 @@ export class TrackingOutboxWorkerService
     );
     try {
       const payload = JSON.parse(outbox.payload) as TrackingPayload;
-      const location = await this.geocoder!.resolveLocation(payload);
+      const location = await this.resolveLocation(payload);
       await this.prisma.$transaction(
         async (tx) => {
           const claimed = await tx.trackingOutbox.updateMany({
@@ -349,5 +348,23 @@ export class TrackingOutboxWorkerService
     this.logger.error(
       `Tracking event ${job.data.outboxId} moved to periodic DLQ replay after the retry window: ${String(error)}`,
     );
+  }
+
+  private async resolveLocation(
+    location: TrackingPayload,
+  ): Promise<TrackingPayload> {
+    if (location.latitude !== null && location.longitude !== null)
+      return location;
+    try {
+      return {
+        ...location,
+        ...(await this.geocoder.geocode(location.locationText)),
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Geocoding failed; retaining textual location: ${String(error)}`,
+      );
+      return location;
+    }
   }
 }

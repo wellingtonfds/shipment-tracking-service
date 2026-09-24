@@ -1,4 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Redis } from 'ioredis';
+import type { GeocodingPort } from '../../../application/shipments/ports/geocoding.port.js';
 import type { CustomerRepositoryPort } from '../../../domain/customers/ports/customer-repository.port.js';
 import type { ShipmentRepositoryPort } from '../../../domain/shipments/ports/shipment-repository.port.js';
 import type { UserRepositoryPort } from '../../../domain/users/ports/user-repository.port.js';
@@ -7,6 +10,8 @@ import {
   ADD_SHIPMENT_EVENT_USE_CASE,
   CANCEL_SHIPMENT_USE_CASE,
   CREATE_SHIPMENT_USE_CASE,
+  GEOCODE_ADDRESS_USE_CASE,
+  GEOCODING_PORT,
   GET_SHIPMENT_HISTORY_USE_CASE,
   GET_SHIPMENT_USE_CASE,
   LIST_SHIPMENTS_BY_STATUS_USE_CASE,
@@ -21,6 +26,7 @@ import { USER_REPOSITORY } from '../../../application/users/user.tokens.js';
 import { AddShipmentEventUseCase } from '../../../application/shipments/use-cases/add-shipment-event.use-case.js';
 import { CancelShipmentUseCase } from '../../../application/shipments/use-cases/cancel-shipment.use-case.js';
 import { CreateShipmentUseCase } from '../../../application/shipments/use-cases/create-shipment.use-case.js';
+import { GeocodeAddressUseCase } from '../../../application/shipments/use-cases/geocode-address.use-case.js';
 import { GetShipmentHistoryUseCase } from '../../../application/shipments/use-cases/get-shipment-history.use-case.js';
 import { GetShipmentUseCase } from '../../../application/shipments/use-cases/get-shipment.use-case.js';
 import { ListShipmentEventsUseCase } from '../../../application/shipments/use-cases/list-shipment-events.use-case.js';
@@ -31,6 +37,8 @@ import { UpdateShipmentLocationUseCase } from '../../../application/shipments/us
 import { UpdateShipmentStatusUseCase } from '../../../application/shipments/use-cases/update-shipment-status.use-case.js';
 import { PrismaShipmentRepositoryAdapter } from '../../database/shipments/prisma-shipment-repository.adapter.js';
 import { TrackingOutboxWorkerService } from '../../database/shipments/tracking-outbox-worker.service.js';
+import { TrackingGeocoder } from '../../database/shipments/tracking-geocoder.js';
+import type { AppConfig, TrackingConfig } from '../../config/configuration.js';
 import { PrismaUserRepositoryAdapter } from '../../database/users/prisma-user-repository.adapter.js';
 import { CustomersModule } from '../customers/customers.module.js';
 import { HistoricoController } from './historico.controller.js';
@@ -40,17 +48,48 @@ import { TrackingController } from './tracking.controller.js';
   imports: [CustomersModule],
   controllers: [TrackingController, HistoricoController],
   providers: [
-    TrackingOutboxWorkerService,
     { provide: SHIPMENT_REPOSITORY, useClass: PrismaShipmentRepositoryAdapter },
     { provide: USER_REPOSITORY, useClass: PrismaUserRepositoryAdapter },
+    {
+      provide: GEOCODING_PORT,
+      useFactory: (config: ConfigService<AppConfig>) => {
+        const tracking = config.getOrThrow<TrackingConfig>('tracking');
+        const host = tracking.redis.host;
+        const redis = host
+          ? new Redis({
+              host,
+              port: tracking.redis.port,
+              password: tracking.redis.password,
+              tls: tracking.redis.tls ? {} : undefined,
+              lazyConnect: true,
+              maxRetriesPerRequest: 1,
+            })
+          : undefined;
+        return new TrackingGeocoder(redis, () => tracking.geocoder, true);
+      },
+      inject: [ConfigService],
+    },
+    TrackingOutboxWorkerService,
     {
       provide: CREATE_SHIPMENT_USE_CASE,
       useFactory: (
         shipments: ShipmentRepositoryPort,
         customers: CustomerRepositoryPort,
         users: UserRepositoryPort,
-      ) => new CreateShipmentUseCase(shipments, customers, users),
-      inject: [SHIPMENT_REPOSITORY, CUSTOMER_REPOSITORY, USER_REPOSITORY],
+        geocoder: GeocodingPort,
+      ) => new CreateShipmentUseCase(shipments, customers, users, geocoder),
+      inject: [
+        SHIPMENT_REPOSITORY,
+        CUSTOMER_REPOSITORY,
+        USER_REPOSITORY,
+        GEOCODING_PORT,
+      ],
+    },
+    {
+      provide: GEOCODE_ADDRESS_USE_CASE,
+      useFactory: (geocoder: GeocodingPort) =>
+        new GeocodeAddressUseCase(geocoder),
+      inject: [GEOCODING_PORT],
     },
     {
       provide: LIST_SHIPMENTS_USE_CASE,

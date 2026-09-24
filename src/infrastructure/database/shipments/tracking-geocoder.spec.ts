@@ -52,6 +52,36 @@ function harness(settings: TrackingConfig['geocoder'] = config) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('TrackingGeocoder', () => {
+  it('rejects invalid addresses in the strict geocoding contract', async () => {
+    const { geocoder } = harness();
+
+    await expect(geocoder.geocode('x')).rejects.toMatchObject({
+      code: 'GEOCODING_INVALID_ADDRESS',
+    });
+  });
+
+  it('reports no result and provider unavailability distinctly', async () => {
+    const noResult = harness().geocoder;
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue({ ok: true, status: 200, json: async () => [] }),
+    );
+    await expect(noResult.geocode('Unknown address')).rejects.toMatchObject({
+      code: 'GEOCODING_RESULT_NOT_FOUND',
+    });
+
+    const unavailable = harness().geocoder;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+    await expect(
+      unavailable.geocode('Unavailable address'),
+    ).rejects.toMatchObject({ code: 'GEOCODING_PROVIDER_UNAVAILABLE' });
+  });
+
   it('preserves coordinates already supplied and does not call Redis or HTTP', async () => {
     const { geocoder, redis } = harness();
     const ready = { ...location, latitude: -23.5, longitude: -46.6 };
@@ -85,12 +115,10 @@ describe('TrackingGeocoder', () => {
 
   it('calls the provider with headers and caches valid coordinates', async () => {
     const { geocoder, redis } = harness();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => [{ lat: '-23.5', lon: '-46.6' }],
-      });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lat: '-23.5', lon: '-46.6' }],
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(geocoder.resolveLocation(location)).resolves.toEqual({
@@ -157,12 +185,10 @@ describe('TrackingGeocoder', () => {
   it('permits one half-open probe and closes the circuit after success', async () => {
     const { geocoder, values, redis } = harness();
     values.set((await circuitKeyFor()) + ':ever-opened', '1');
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        json: async () => [{ lat: '10', lon: '20' }],
-      });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ lat: '10', lon: '20' }],
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(geocoder.resolveLocation(location)).resolves.toMatchObject({

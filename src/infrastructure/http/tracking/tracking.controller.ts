@@ -26,6 +26,7 @@ import { SHIPMENT_STATUSES } from '../../../domain/shipments/shipment.entity.js'
 import {
   CANCEL_SHIPMENT_USE_CASE,
   CREATE_SHIPMENT_USE_CASE,
+  GEOCODE_ADDRESS_USE_CASE,
   GET_SHIPMENT_HISTORY_USE_CASE,
   GET_SHIPMENT_USE_CASE,
   LIST_SHIPMENTS_BY_STATUS_USE_CASE,
@@ -36,6 +37,7 @@ import {
 } from '../../../application/shipments/shipment.tokens.js';
 import { CancelShipmentUseCase } from '../../../application/shipments/use-cases/cancel-shipment.use-case.js';
 import { CreateShipmentUseCase } from '../../../application/shipments/use-cases/create-shipment.use-case.js';
+import { GeocodeAddressUseCase } from '../../../application/shipments/use-cases/geocode-address.use-case.js';
 import { GetShipmentHistoryUseCase } from '../../../application/shipments/use-cases/get-shipment-history.use-case.js';
 import { GetShipmentUseCase } from '../../../application/shipments/use-cases/get-shipment.use-case.js';
 import { ListShipmentsByStatusUseCase } from '../../../application/shipments/use-cases/list-shipments-by-status.use-case.js';
@@ -47,6 +49,7 @@ import { Roles } from '../shared/guards/roles.decorator.js';
 import { CurrentUser } from '../shared/guards/current-user.decorator.js';
 import { ErrorPresenter } from '../shared/presenters/error.presenter.js';
 import { CreateShipmentDto } from './dtos/create-shipment.dto.js';
+import { GeocodeQueryDto } from './dtos/geocode-query.dto.js';
 import { ListShipmentHistoryQueryDto } from './dtos/list-shipment-history-query.dto.js';
 import { ListShipmentsQueryDto } from './dtos/list-shipments-query.dto.js';
 import { MarkShipmentDeliveredDto } from './dtos/mark-shipment-delivered.dto.js';
@@ -58,6 +61,7 @@ import {
   ShipmentPresenter,
 } from './shipment.presenter.js';
 import { TrackingAcceptedPresenter } from './tracking-accepted.presenter.js';
+import { GeocodingPresenter } from './geocoding.presenter.js';
 
 // Routes kept in Portuguese (/tracking, /historico, {codigoCarga}) per the tracking
 // spec — code identifiers stay in English (English-only code);
@@ -86,6 +90,8 @@ export class TrackingController {
   constructor(
     @Inject(CREATE_SHIPMENT_USE_CASE)
     private readonly createShipment: CreateShipmentUseCase,
+    @Inject(GEOCODE_ADDRESS_USE_CASE)
+    private readonly geocodeAddress: GeocodeAddressUseCase,
     @Inject(LIST_SHIPMENTS_USE_CASE)
     private readonly listShipments: ListShipmentsUseCase,
     @Inject(LIST_SHIPMENTS_BY_STATUS_USE_CASE)
@@ -134,12 +140,10 @@ export class TrackingController {
       cargoCode: dto.cargoCode,
       originCity: dto.originCity,
       originCountry: dto.originCountry,
-      originLatitude: dto.originLatitude ?? null,
-      originLongitude: dto.originLongitude ?? null,
+      originAddress: dto.originAddress,
       destinationCity: dto.destinationCity,
       destinationCountry: dto.destinationCountry,
-      destinationLatitude: dto.destinationLatitude ?? null,
-      destinationLongitude: dto.destinationLongitude ?? null,
+      destinationAddress: dto.destinationAddress,
       departureDate: dto.departureDate,
       estimatedDeliveryDate: dto.estimatedDeliveryDate,
       customerId: dto.customerId ?? null,
@@ -147,6 +151,34 @@ export class TrackingController {
       principal: user,
     });
     return ShipmentPresenter.fromEntity(shipment);
+  }
+
+  // Declared before ':codigoCarga' so the static segment is matched first.
+  @Get('geocode')
+  @ApiOperation({
+    summary: 'Resolve a complete address to coordinates',
+    description:
+      'Available to every authenticated profile. Uses the geocoding cache before consulting the configured provider.',
+  })
+  @ApiResponse({
+    status: 200,
+    type: GeocodingPresenter,
+    description: 'Coordinates resolved',
+  })
+  @ApiResponse({
+    status: 404,
+    type: ErrorPresenter,
+    description: 'No coordinates found for the address',
+  })
+  @ApiResponse({
+    status: 503,
+    type: ErrorPresenter,
+    description: 'Geocoding provider unavailable',
+  })
+  async geocode(@Query() query: GeocodeQueryDto): Promise<GeocodingPresenter> {
+    return GeocodingPresenter.fromCoordinates(
+      await this.geocodeAddress.execute(query.address),
+    );
   }
 
   @Get()

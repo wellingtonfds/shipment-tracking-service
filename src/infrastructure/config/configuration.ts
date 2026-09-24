@@ -10,6 +10,8 @@ export interface AppConfig {
 
 export interface TrackingConfig {
   queueEnabled: boolean;
+  queueName: string;
+  deadQueueName: string;
   workerRole: boolean;
   dispatcherRole: boolean;
   redis: {
@@ -85,6 +87,9 @@ function trackingConfiguration(): TrackingConfig {
 
   return {
     queueEnabled,
+    queueName: parseOptionalString('TRACKING_QUEUE_NAME') ?? 'tracking-events',
+    deadQueueName:
+      parseOptionalString('TRACKING_DEAD_QUEUE_NAME') ?? 'tracking-events-dlq',
     workerRole: parseBoolean('TRACKING_WORKER_ROLE', false),
     dispatcherRole: parseBoolean('TRACKING_DISPATCHER_ROLE', true),
     redis: {

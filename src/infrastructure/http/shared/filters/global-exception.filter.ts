@@ -40,6 +40,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     SHIPMENT_HANDLER_REQUIRED: HttpStatus.UNPROCESSABLE_ENTITY,
     SHIPMENT_HANDLER_INACTIVE: HttpStatus.UNPROCESSABLE_ENTITY,
     CUSTOMER_SCOPE_MISSING: HttpStatus.FORBIDDEN,
+    GEOCODING_INVALID_ADDRESS: HttpStatus.BAD_REQUEST,
+    GEOCODING_RESULT_NOT_FOUND: HttpStatus.NOT_FOUND,
+    GEOCODING_PROVIDER_UNAVAILABLE: HttpStatus.SERVICE_UNAVAILABLE,
   };
 
   catch(exception: unknown, host: ArgumentsHost): void {

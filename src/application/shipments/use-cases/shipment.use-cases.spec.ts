@@ -26,7 +26,8 @@ import {
 } from '../../../domain/users/ports/user-repository.port.js';
 import { AddShipmentEventUseCase } from './add-shipment-event.use-case.js';
 import { CancelShipmentUseCase } from './cancel-shipment.use-case.js';
-import { CreateShipmentUseCase } from './create-shipment.use-case.js';
+import { CreateShipmentUseCase as ActualCreateShipmentUseCase } from './create-shipment.use-case.js';
+import type { GeocodingPort } from '../ports/geocoding.port.js';
 import { GetShipmentHistoryUseCase } from './get-shipment-history.use-case.js';
 import { GetShipmentUseCase } from './get-shipment.use-case.js';
 import { ListShipmentEventsUseCase } from './list-shipment-events.use-case.js';
@@ -70,11 +71,33 @@ function baseCreateInput(cargoCode = 'UT-0001') {
     cargoCode,
     originCity: 'São Paulo',
     originCountry: 'Brasil',
+    originAddress: 'Avenida Paulista, 1578, São Paulo, SP, Brasil',
     destinationCity: 'Rio de Janeiro',
     destinationCountry: 'Brasil',
+    destinationAddress: 'Avenida Atlântica, 1702, Rio de Janeiro, RJ, Brasil',
     departureDate: future(1),
     estimatedDeliveryDate: future(6),
   };
+}
+
+function fakeGeocoder(): GeocodingPort {
+  return {
+    async geocode(address) {
+      return address.includes('Paulista')
+        ? { latitude: -23.561414, longitude: -46.655881 }
+        : { latitude: -22.9675, longitude: -43.1792 };
+    },
+  };
+}
+
+class CreateShipmentUseCase extends ActualCreateShipmentUseCase {
+  constructor(
+    shipments: ShipmentRepositoryPort,
+    customers: CustomerRepositoryPort,
+    users: UserRepositoryPort,
+  ) {
+    super(shipments, customers, users, fakeGeocoder());
+  }
 }
 
 interface FakeStore {
@@ -228,10 +251,12 @@ function fakeShipments(): FakeStore {
         status: 'CREATED',
         originCity: data.originCity,
         originCountry: data.originCountry,
+        originAddress: data.originAddress,
         originLatitude: data.originLatitude,
         originLongitude: data.originLongitude,
         destinationCity: data.destinationCity,
         destinationCountry: data.destinationCountry,
+        destinationAddress: data.destinationAddress,
         destinationLatitude: data.destinationLatitude,
         destinationLongitude: data.destinationLongitude,
         geocodedAt: null,
@@ -249,7 +274,7 @@ function fakeShipments(): FakeStore {
       appendEvent(
         created.id,
         'CREATED',
-        `${data.originCity}, ${data.originCountry}`,
+        data.originAddress,
         data.handledById,
         'Shipment registered in the system',
         data.originLatitude,
@@ -687,9 +712,9 @@ describe('CreateShipmentUseCase', () => {
     });
     // The initial location is the origin, recorded in the CREATED event.
     expect(shipment.currentLocation).toMatchObject({
-      locationText: 'São Paulo, Brasil',
-      latitude: null,
-      longitude: null,
+      locationText: 'Avenida Paulista, 1578, São Paulo, SP, Brasil',
+      latitude: -23.561414,
+      longitude: -46.655881,
     });
     expect(store.events).toHaveLength(1);
     expect(store.events[0]).toMatchObject({
@@ -1184,7 +1209,7 @@ describe('GetShipmentUseCase and ListShipmentsUseCase', () => {
     expect(detail.cargoCode).toBe('UT-0101');
     // Current location comes from the latest (CREATED) event.
     expect(detail.currentLocation).toMatchObject({
-      locationText: 'São Paulo, Brasil',
+      locationText: 'Avenida Paulista, 1578, São Paulo, SP, Brasil',
     });
     await expect(get.execute('UT-0102', operator)).rejects.toMatchObject({
       code: 'SHIPMENT_NOT_FOUND',
@@ -1225,7 +1250,7 @@ describe('GetShipmentUseCase and ListShipmentsUseCase', () => {
     });
     expect(result.data[0].cargoCode).toBe('UT-0102');
     expect(result.data[0].currentLocation).toMatchObject({
-      locationText: 'São Paulo, Brasil',
+      locationText: 'Avenida Paulista, 1578, São Paulo, SP, Brasil',
     });
   });
 

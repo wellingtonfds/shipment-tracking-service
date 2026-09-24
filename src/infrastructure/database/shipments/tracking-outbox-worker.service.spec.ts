@@ -6,11 +6,13 @@ import type { Redis } from 'ioredis';
 import type { Queue, Job } from 'bullmq';
 import type { AppConfig, TrackingConfig } from '../../config/configuration.js';
 import { PrismaService } from '../prisma.service.js';
-import { TrackingGeocoder } from './tracking-geocoder.js';
+import type { GeocodingPort } from '../../../application/shipments/ports/geocoding.port.js';
 import { TrackingOutboxWorkerService } from './tracking-outbox-worker.service.js';
 
 const tracking = {
   queueEnabled: true,
+  queueName: 'tracking-events-test',
+  deadQueueName: 'tracking-events-dlq-test',
   workerRole: false,
   dispatcherRole: false,
   outboxRedisReconcileMs: 60_000,
@@ -65,19 +67,20 @@ function harness() {
     add: vi.fn().mockResolvedValue(undefined),
   };
   const geocoder = {
-    resolveLocation: vi
-      .fn()
-      .mockImplementation(async (location: unknown) => location),
+    geocode: vi.fn().mockResolvedValue({
+      latitude: -30.0346,
+      longitude: -51.2177,
+    }),
   };
   const config = { getOrThrow: vi.fn().mockReturnValue(tracking) };
   const worker = new TrackingOutboxWorkerService(
     prisma as unknown as PrismaService,
     config as unknown as ConfigService<AppConfig>,
     { addQueue: vi.fn() } as unknown as BullBoardInstance,
+    geocoder as GeocodingPort,
   );
   worker['redis'] = redis as unknown as Redis;
   worker['queue'] = queue as unknown as Queue;
-  worker['geocoder'] = geocoder as unknown as TrackingGeocoder;
   return { worker, prisma, tx, redis, queue, geocoder };
 }
 
@@ -146,7 +149,7 @@ describe('TrackingOutboxWorkerService', () => {
       120_000,
       'NX',
     );
-    expect(geocoder.resolveLocation).toHaveBeenCalledOnce();
+    expect(geocoder.geocode).toHaveBeenCalledOnce();
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: 'Serializable',
     });
@@ -201,6 +204,49 @@ describe('TrackingOutboxWorkerService', () => {
       data: expect.objectContaining({ status: 'CREATED' }),
     });
     expect(tx.shipment.update).not.toHaveBeenCalled();
+  });
+
+  it('preserves existing coordinates without calling the geocoder', async () => {
+    const { worker, prisma, tx, geocoder } = harness();
+    prisma.trackingOutbox.findUnique.mockResolvedValue({
+      ...outbox,
+      payload: JSON.stringify({
+        ...JSON.parse(outbox.payload),
+        latitude: -30.0346,
+        longitude: -51.2177,
+      }),
+    });
+
+    await worker['processJob']({ data: { outboxId: 'outbox-1' } } as Job<{
+      outboxId: string;
+    }>);
+
+    expect(geocoder.geocode).not.toHaveBeenCalled();
+    expect(tx.shipmentEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        locationText: 'Porto Alegre',
+        latitude: -30.0346,
+        longitude: -51.2177,
+      }),
+    });
+  });
+
+  it('preserves the textual location and null coordinates when geocoding fails', async () => {
+    vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+    const { worker, tx, geocoder } = harness();
+    geocoder.geocode.mockRejectedValue(new Error('provider unavailable'));
+
+    await worker['processJob']({ data: { outboxId: 'outbox-1' } } as Job<{
+      outboxId: string;
+    }>);
+
+    expect(tx.shipmentEvent.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        locationText: 'Porto Alegre',
+        latitude: null,
+        longitude: null,
+      }),
+    });
   });
 
   it('records the delivery timestamp when a transfer is delivered', async () => {
@@ -278,7 +324,9 @@ describe('TrackingOutboxWorkerService', () => {
   });
 
   it('moves an expired retry to the DLQ and retains recent retries', async () => {
-    const log = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const log = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
     const { worker } = harness();
     const deadQueue = { add: vi.fn() };
     worker['deadQueue'] = deadQueue as unknown as Queue;

@@ -22,20 +22,21 @@ npm run start:dev       # API, worker e painel Bull Board
 
 ## Scripts
 
-| Comando                | O que faz                                                                                                                                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run start:dev`    | dev com watch                                                                                                                                                                      |
-| `npm run build`        | compila para `dist/`                                                                                                                                                               |
-| `npm run start:prod`   | roda `dist/main.js`                                                                                                                                                                |
-| `npm run start:worker` | inicia o processo de consumo da fila de tracking                                                                                                                                   |
-| `npm test`             | testes unit + arquitetura                                                                                                                                                          |
-| `npm run test:ci`      | testes unit + arquitetura com relatórios JUnit e cobertura                                                                                                                         |
-| `npm run test:e2e`     | testes e2e (precisa de SQL Server e Redis no ar)                                                                                                                                   |
-| `npm run lint`         | oxlint type-aware                                                                                                                                                                  |
-| `npm run db:migrate`   | `prisma migrate dev` + `prisma generate`                                                                                                                                           |
-| `npm run db:generate`  | `prisma generate` (recria `src/generated/prisma`)                                                                                                                                  |
-| `npm run db:seed`      | popula o banco com massa fixa/idempotente: customers (15), users (14: 2 admin, 6 operadores vinculados, 6 portal CUSTOMER), shipments (12) e shipment_events (histórico por carga) |
-| `npm run db:partition` | idempotente: cria fronteiras mensais vazias de `shipment_events` até cobrir 24 meses futuros (ver docs/DATABASE.md)                                                                |
+| Comando                                | O que faz                                                                                                                                                                          |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run start:dev`                    | dev com watch                                                                                                                                                                      |
+| `npm run build`                        | compila para `dist/`                                                                                                                                                               |
+| `npm run start:prod`                   | roda `dist/main.js`                                                                                                                                                                |
+| `npm run start:worker`                 | inicia o processo de consumo da fila de tracking                                                                                                                                   |
+| `npm test`                             | testes unit + arquitetura                                                                                                                                                          |
+| `npm run test:ci`                      | testes unit + arquitetura com relatórios JUnit e cobertura                                                                                                                         |
+| `npm run test:e2e`                     | testes e2e (precisa de SQL Server e Redis no ar)                                                                                                                                   |
+| `npm run lint`                         | oxlint type-aware                                                                                                                                                                  |
+| `npm run wiki:generate -- <diretório>` | gera uma prévia local da Wiki a partir de `docs/` (requer `GITHUB_REPOSITORY=owner/repository`)                                                                                    |
+| `npm run db:migrate`                   | `prisma migrate dev` + `prisma generate`                                                                                                                                           |
+| `npm run db:generate`                  | `prisma generate` (recria `src/generated/prisma`)                                                                                                                                  |
+| `npm run db:seed`                      | popula o banco com massa fixa/idempotente: customers (15), users (14: 2 admin, 6 operadores vinculados, 6 portal CUSTOMER), shipments (12) e shipment_events (histórico por carga) |
+| `npm run db:partition`                 | idempotente: cria fronteiras mensais vazias de `shipment_events` até cobrir 24 meses futuros (ver docs/DATABASE.md)                                                                |
 
 ## Autenticação (dev)
 
@@ -89,6 +90,16 @@ O workflow `.github/workflows/ci.yml` roda em pull requests e pushes para `main`
 - build da imagem Docker após lint e testes passarem.
 
 Os relatórios JUnit e de cobertura ficam disponíveis como artefatos da execução por 14 dias. A imagem é apenas validada no CI e não é publicada em registry.
+
+## Publicação da documentação na Wiki
+
+O diretório `docs/` é a fonte exclusiva de verdade da documentação. A Wiki do GitHub é uma projeção gerada: edições feitas diretamente nela serão removidas na publicação seguinte.
+
+O workflow `.github/workflows/wiki.yml` roda somente após um push para `main` que altere `docs/**`, portanto a publicação acontece depois do merge do pull request. Ele substitui todo o conteúdo da Wiki pelo estado mais recente de `docs/`, gera a navegação e ajusta os links entre páginas automaticamente.
+
+Antes do primeiro merge desse workflow, abra a aba **Wiki** no GitHub, crie uma página temporária chamada `Home` e salve-a. Esse passo inicializa o repositório Git da Wiki; a primeira publicação substituirá a página temporária.
+
+Se uma publicação falhar, abra a execução **Publish documentation Wiki** no GitHub Actions e consulte o passo com erro. As causas validadas pelo workflow incluem Wiki ainda não inicializada, link Markdown local apontando para arquivo inexistente, colisão entre nomes de páginas gerados e uso dos nomes reservados `Home` ou `_Sidebar` em `docs/`. Para reproduzir a geração localmente, execute `GITHUB_REPOSITORY=<owner/repository> npm run wiki:generate -- <diretório-temporário-vazio>`. Corrija o documento canônico em `docs/` por pull request; a falha não modifica nem reverte esses arquivos.
 
 ## Pull requests e releases
 

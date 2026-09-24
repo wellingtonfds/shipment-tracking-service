@@ -1,0 +1,63 @@
+name: Publish documentation Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/**
+
+concurrency:
+  group: publish-wiki-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Publish Wiki
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out merged documentation
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Clone initialized Wiki
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          wiki_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+          if ! git clone "$wiki_url" "$RUNNER_TEMP/wiki"; then
+            echo "::error::The repository Wiki is not initialized. Create and save a temporary Home page in the GitHub Wiki UI, then rerun this workflow."
+            exit 1
+          fi
+
+      - name: Replace Wiki from docs
+        run: |
+          find "$RUNNER_TEMP/wiki" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf -- {} +
+          npm run wiki:generate -- "$RUNNER_TEMP/wiki"
+
+      - name: Commit and publish changes
+        working-directory: ${{ runner.temp }}/wiki
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          if git diff --cached --quiet; then
+            echo "Wiki already matches docs at ${SOURCE_SHA}."
+            exit 0
+          fi
+          git commit -m "docs: sync from ${SOURCE_SHA}"
+          git push origin HEAD

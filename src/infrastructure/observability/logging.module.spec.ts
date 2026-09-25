@@ -39,13 +39,16 @@ describe('loggingOptions', () => {
       url: '/api/v1/health',
       socket: { remoteAddress: '127.0.0.1' },
     };
+    const serializeRequest = pino.stdSerializers.wrapRequestSerializer(
+      options.serializers.req,
+    );
 
     expect(options.genReqId(request as never)).toBe('request-123');
     expect(options.customProps(request as never)).toMatchObject({
       requestId: 'request-123',
       component: 'http',
     });
-    expect(options.serializers.req(request as never)).toEqual({
+    expect(serializeRequest(request as never)).toEqual({
       id: 'request-123',
       method: 'GET',
       url: '/api/v1/health',
